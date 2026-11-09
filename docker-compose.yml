@@ -1,0 +1,27 @@
+# Local development stack. Production uses Aurora PostgreSQL 16 + ElastiCache (see infra/terraform).
+services:
+  postgres:
+    # Postgres 16 with pgvector preinstalled (needed for the Phase 4 AI search)
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: constructos
+      POSTGRES_USER: constructos_owner
+      POSTGRES_PASSWORD: owner_local_dev
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U constructos_owner -d constructos"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+volumes:
+  pgdata: {}
