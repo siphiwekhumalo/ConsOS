@@ -1,1 +1,159 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+/* Theme is driven by <html data-theme="light|dark"> (set in lib/theme.ts). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ---------------------------------------------------------------------------
+   Design tokens. Components use these roles, never raw colours, so light and
+   dark swap in one place. Chart colours follow the validated dataviz palette:
+   categorical slots in fixed order, a one-hue blue ordinal ramp, and reserved
+   status colours that always ship with an icon + label.
+   --------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f9fafb;
+  --surface-3: #f1f3f6;
+  --border: #e4e7ec;
+  --border-strong: #d0d5dd;
+  --text: #0c111d;
+  --text-2: #475467;
+  --text-3: #8a94a6;
+  --brand: #2f5bd3;
+  --brand-hover: #2549b3;
+  --brand-soft: #eef3ff;
+  --brand-ink: #1d3f9e;
+  --accent: #f59e0b;
+  --ring: rgba(47, 91, 211, 0.35);
+  --sidebar: #ffffff;
+  --overlay: rgba(12, 17, 29, 0.45);
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-lg: 0 12px 32px -8px rgba(16, 24, 40, 0.18), 0 4px 8px -4px rgba(16, 24, 40, 0.06);
+
+  /* status (fixed roles) */
+  --good: #0ca30c;      --good-ink: #067647;   --good-soft: #ecfdf3;
+  --warning: #fab219;   --warning-ink: #93370d; --warning-soft: #fffaeb;
+  --serious: #ec835a;   --serious-ink: #9c2a10; --serious-soft: #fef3ee;
+  --critical: #d03b3b;  --critical-ink: #b42318; --critical-soft: #fef3f2;
+  --info-ink: #1d3f9e;  --info-soft: #eef3ff;
+
+  /* charts */
+  --chart-surface: #ffffff;
+  --grid: #eceef2;
+  --axis: #c3c7cf;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --ord-1: #86b6ef; --ord-2: #5598e7; --ord-3: #2a78d6; --ord-4: #1c5cab; --ord-5: #104281;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0d12;
+  --surface: #12151c;
+  --surface-2: #161a22;
+  --surface-3: #1c212b;
+  --border: #252a35;
+  --border-strong: #333a47;
+  --text: #eceef2;
+  --text-2: #a9b0bd;
+  --text-3: #737b8a;
+  --brand: #5b82ee;
+  --brand-hover: #7396f2;
+  --brand-soft: #18213a;
+  --brand-ink: #a9bff8;
+  --ring: rgba(91, 130, 238, 0.45);
+  --sidebar: #0f1218;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 40px -8px rgba(0, 0, 0, 0.6);
+
+  --good-ink: #47cd89;     --good-soft: #0d2a1c;
+  --warning-ink: #fdb022;  --warning-soft: #2e2208;
+  --serious-ink: #f79868;  --serious-soft: #321a10;
+  --critical-ink: #f97066; --critical-soft: #331414;
+  --info-ink: #a9bff8;     --info-soft: #18213a;
+
+  --chart-surface: #12151c;
+  --grid: #222733;
+  --axis: #383d48;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --ord-1: #184f95; --ord-2: #1c5cab; --ord-3: #2a78d6; --ord-4: #5598e7; --ord-5: #86b6ef;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-ink-2: var(--text-2);
+  --color-ink-3: var(--text-3);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-accent: var(--accent);
+  --color-sidebar: var(--sidebar);
+  --color-good: var(--good);
+  --color-good-ink: var(--good-ink);
+  --color-good-soft: var(--good-soft);
+  --color-warning: var(--warning);
+  --color-warning-ink: var(--warning-ink);
+  --color-warning-soft: var(--warning-soft);
+  --color-serious: var(--serious);
+  --color-serious-ink: var(--serious-ink);
+  --color-serious-soft: var(--serious-soft);
+  --color-critical: var(--critical);
+  --color-critical-ink: var(--critical-ink);
+  --color-critical-soft: var(--critical-soft);
+  --color-info-ink: var(--info-ink);
+  --color-info-soft: var(--info-soft);
+  --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-lg);
+}
+
+@layer base {
+  html,
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--brand-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* Quiet scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+@layer utilities {
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

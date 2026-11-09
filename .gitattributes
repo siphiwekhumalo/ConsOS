@@ -1,0 +1,7 @@
+# Linux CI agents and containers need LF line endings regardless of the
+# developer's OS.
+* text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.jpg binary
+*.woff2 binary

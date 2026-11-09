@@ -45,13 +45,21 @@ resource "aws_vpc_endpoint" "s3" {
 
 resource "aws_security_group" "alb" {
   name        = "${local.name}-alb"
-  description = "Public HTTPS ingress to the load balancer"
+  description = "Public ingress to the load balancer"
   vpc_id      = module.vpc.vpc_id
 
   ingress {
     description = "HTTPS"
     from_port   = 443
     to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTP (redirected to HTTPS)"
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -64,37 +72,55 @@ resource "aws_security_group" "alb" {
   }
 }
 
-resource "aws_security_group" "api" {
-  name        = "${local.name}-api"
-  description = "API tasks: ingress from ALB only"
+# All four Fargate services: ingress from the ALB only, on their container ports.
+resource "aws_security_group" "services" {
+  name        = "${local.name}-services"
+  description = "ECS services: ingress from the ALB only"
   vpc_id      = module.vpc.vpc_id
 
-  ingress {
-    description     = "API from ALB"
-    from_port       = 3000
-    to_port         = 3000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
+  dynamic "ingress" {
+    for_each = toset([80, 3000, 8000, 8081])
+    content {
+      description     = "port ${ingress.value} from ALB"
+      from_port       = ingress.value
+      to_port         = ingress.value
+      protocol        = "tcp"
+      security_groups = [aws_security_group.alb.id]
+    }
   }
 
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] # Claude API, ECR, Secrets Manager (via NAT)
   }
 }
 
 resource "aws_security_group" "db" {
   name        = "${local.name}-db"
-  description = "Aurora: ingress from API tasks only"
+  description = "Aurora: ingress from ECS services only"
   vpc_id      = module.vpc.vpc_id
 
   ingress {
-    description     = "Postgres from API"
+    description     = "Postgres from services"
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.api.id]
+    security_groups = [aws_security_group.services.id]
+  }
+}
+
+resource "aws_security_group" "redis" {
+  name        = "${local.name}-redis"
+  description = "ElastiCache: ingress from ECS services only"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description     = "Redis from services"
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [aws_security_group.services.id]
   }
 }

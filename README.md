@@ -42,12 +42,12 @@ JWT_SECRET=
 SEED_PASSWORD=
 
 # --- only needed when running services outside Docker (option B) ---
-DATABASE_URL_OWNER=postgres://constructos_owner:owner_local_dev@localhost:5432/constructos
-DATABASE_URL_APP=postgres://constructos_app:app_local_dev@localhost:5432/constructos
-AI_DATABASE_URL=postgresql://constructos_ai:ai_local_dev@localhost:5432/constructos
-REDIS_URL=redis://localhost:6379
+DATABASE_URL_OWNER=postgres://constructos_owner:owner_local_dev@localhost:5434/constructos
+DATABASE_URL_APP=postgres://constructos_app:app_local_dev@localhost:5434/constructos
+AI_DATABASE_URL=postgresql://constructos_ai:ai_local_dev@localhost:5434/constructos
+REDIS_URL=redis://localhost:6380
 S3_BUCKET=constructos-tenant-files
-S3_ENDPOINT=http://localhost:9090
+S3_ENDPOINT=http://localhost:9094
 S3_FORCE_PATH_STYLE=true
 AWS_ACCESS_KEY_ID=local
 AWS_SECRET_ACCESS_KEY=local
@@ -56,17 +56,18 @@ AWS_SECRET_ACCESS_KEY=local
 AI_PROVIDER=fake
 # ANTHROPIC_API_KEY=
 
-# --- only if default ports are taken on your machine ---
+# --- host ports (these are the defaults; override only if one is taken) ---
 # PG_PORT=5434  REDIS_PORT=6380  S3_PORT=9094  API_PORT=3000  SYNC_PORT=18081  AI_PORT=8010  WEB_PORT=8070
 ```
 
+The defaults deliberately avoid 5432, 6379, 8000 and 8080 so this stack runs next to other projects.
 If you change a port, also change it in the `localhost` URLs above.
 
 ## 2a. Run everything in Docker (simplest)
 
 ```bash
 docker compose --profile app up -d --build        # builds 4 services, runs migrations, starts all
-docker compose --profile app run --rm -e SEED_PASSWORD=<same as .env> migrate node node_modules/@constructos/db/dist/seed.js
+docker compose --profile app run --rm migrate node node_modules/@constructos/db/dist/seed.js   # uses SEED_PASSWORD from .env
 ```
 
 Open **http://localhost:8070** (or your `WEB_PORT`). Sign in with organisation `demo-mining`, email
@@ -96,7 +97,7 @@ Then one terminal per service:
 ```bash
 pnpm dev:api                                      # core API     http://localhost:3000/api/v1
 pnpm dev:web                                      # web app      http://localhost:5173
-cd apps/ai-engine && uv sync && uv run python -m uvicorn app.main:app --reload --port 8000
+cd apps/ai-engine && uv sync && uv run python -m uvicorn app.main:app --reload --port 8010
 docker compose --profile app up -d sync-service   # sync service (or, with Go: cd apps/sync-service && go run ./cmd/server)
 ```
 
@@ -134,6 +135,10 @@ docker run --rm -v "$PWD/apps/sync-service:/src" -w /src golang:1.24-alpine go t
 | core | `GET /api/v1/files?projectId=`, `GET /api/v1/files/:id/download` | list / short-lived download link |
 | core | `GET /api/v1/audit/events`, `GET /api/v1/audit/verify` | audit trail; hash-chain verification |
 | core | `POST /api/v1/formulas/evaluate` | test a commercial-rule formula |
+| core | `GET/POST /api/v1/estimates`, `GET /api/v1/estimates/:id` | client JCE intake pipeline, with live client-vs-internal summary (needs `mod_commercial`) |
+| core | `POST/PATCH/DELETE /api/v1/estimates/:id/lines[/:lineId]` | line items, client and internal sides (Intake and Technical Review only) |
+| core | `POST /api/v1/estimates/:id/import-ai` | `{jobId}`: copy an AI BOQ extraction in as the client's lines |
+| core | `POST /api/v1/estimates/:id/transition` | `{to, note?, clientApprovalRef?, acknowledgeVariance?}`: role-tiered approvals; `baseline_locked` freezes and creates the project |
 | sync | `POST /sync/v1/push` | up to 500 offline changes: `applied` / `duplicate` / `conflict` / `rejected` per change |
 | sync | `GET /sync/v1/pull?since=<cursor>` | projects + diary changes since the cursor |
 | ai | `POST /ai/v1/jobs` | `{kind: "boq_extraction", fileId}` or `{kind: "diary_risk_review", projectId}`, returns 202 |

@@ -1,15 +1,42 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState, type ReactElement } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { api, ApiError, session, type Me } from './api';
-import { visibleNav } from './modules';
+import { visibleGroups } from './modules';
+import { AppShell, Logo } from './components/shell/AppShell';
 import { Login } from './pages/Login';
-import { Shell } from './components/Shell';
-import { Projects } from './pages/Projects';
-import { ProjectDetail } from './pages/ProjectDetail';
-import { Audit } from './pages/Audit';
-import { Rules } from './pages/Rules';
-import { AiInsights } from './pages/AiInsights';
-import { ModulePlaceholder } from './pages/ModulePlaceholder';
+import { Skeleton } from './components/ui';
+
+// Route-level code splitting: each page (and the chart library) loads on first visit.
+const page = <K extends string>(load: () => Promise<Record<K, React.ComponentType<any>>>, name: K) =>
+  lazy(() => load().then((m) => ({ default: m[name] })));
+const Dashboard = page(() => import('./pages/Dashboard'), 'Dashboard');
+const Projects = page(() => import('./pages/projects/Projects'), 'Projects');
+const ProjectDetail = page(() => import('./pages/projects/ProjectDetail'), 'ProjectDetail');
+const FieldOps = page(() => import('./pages/FieldOps'), 'FieldOps');
+const Finance = page(() => import('./pages/Finance'), 'Finance');
+const AiAgent = page(() => import('./pages/AiAgent'), 'AiAgent');
+const Audit = page(() => import('./pages/Audit'), 'Audit');
+const Payroll = page(() => import('./pages/modules/Payroll'), 'Payroll');
+const Crm = page(() => import('./pages/modules/Crm'), 'Crm');
+const Estimating = page(() => import('./pages/modules/Estimating'), 'Estimating');
+const Procurement = page(() => import('./pages/modules/Procurement'), 'Procurement');
+const Fleet = page(() => import('./pages/modules/Fleet'), 'Fleet');
+const Hse = page(() => import('./pages/modules/Hse'), 'Hse');
+const Portal = page(() => import('./pages/modules/Portal'), 'Portal');
+const Pipeline = page(() => import('./pages/commercial/Pipeline'), 'Pipeline');
+const EstimateDetail = page(() => import('./pages/commercial/EstimateDetail'), 'EstimateDetail');
+
+function PageFallback() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-8 w-64" />
+      <div className="grid gap-4 sm:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28" />)}
+      </div>
+      <Skeleton className="h-72" />
+    </div>
+  );
+}
 
 export function App() {
   const [me, setMe] = useState<Me | null>(null);
@@ -31,36 +58,53 @@ export function App() {
     if (session.token) void loadMe();
   }, [loadMe]);
 
-  const logout = () => {
-    session.clear();
-    setMe(null);
-  };
-
   if (loading) {
-    return <div className="grid min-h-screen place-items-center text-slate-500">Loading…</div>;
+    return (
+      <div className="grid min-h-screen place-items-center bg-bg">
+        <div className="flex flex-col items-center gap-3 text-sm text-ink-3">
+          <Logo />
+          Loading your workspace…
+        </div>
+      </div>
+    );
   }
-  if (!me) {
-    return <Login onLoggedIn={loadMe} />;
-  }
+  if (!me) return <Login onLoggedIn={loadMe} />;
 
-  const nav = visibleNav(me.modules, me.user.role);
-  const allowed = (path: string) => nav.some((n) => n.path === path);
+  const groups = visibleGroups(me.modules, me.user.role);
+  const allowed = new Set(groups.flatMap((g) => g.items.map((i) => i.path)));
+  const guard = (path: string, el: ReactElement) => (allowed.has(path) ? el : <Navigate to="/" replace />);
 
   return (
-    <Shell me={me} nav={nav} onLogout={logout}>
+    <AppShell
+      me={me}
+      groups={groups}
+      onLogout={() => {
+        session.clear();
+        setMe(null);
+      }}
+    >
+      <Suspense fallback={<PageFallback />}>
       <Routes>
+        <Route path="/" element={<Dashboard me={me} />} />
         <Route path="/projects" element={<Projects me={me} />} />
         <Route path="/projects/:projectId" element={<ProjectDetail me={me} />} />
-        {allowed('/audit') && <Route path="/audit" element={<Audit />} />}
-        {allowed('/rules') && <Route path="/rules" element={<Rules />} />}
-        {allowed('/ai') && <Route path="/ai" element={<AiInsights />} />}
-        {nav
-          .filter((n) => n.comingSoon)
-          .map((n) => (
-            <Route key={n.path} path={n.path} element={<ModulePlaceholder title={n.label} />} />
-          ))}
-        <Route path="*" element={<Navigate to="/projects" replace />} />
+        <Route path="/commercial" element={guard('/commercial', <Pipeline me={me} />)} />
+        <Route path="/commercial/:estimateId" element={guard('/commercial', <EstimateDetail me={me} />)} />
+        <Route path="/field" element={guard('/field', <FieldOps />)} />
+        <Route path="/hse" element={guard('/hse', <Hse />)} />
+        <Route path="/fleet" element={guard('/fleet', <Fleet />)} />
+        <Route path="/crm" element={guard('/crm', <Crm />)} />
+        <Route path="/estimating" element={guard('/estimating', <Estimating />)} />
+        <Route path="/finance" element={guard('/finance', <Finance />)} />
+        <Route path="/procurement" element={guard('/procurement', <Procurement />)} />
+        <Route path="/payroll" element={guard('/payroll', <Payroll />)} />
+        {/* Not /ai: that prefix belongs to the AI service behind the gateway. */}
+        <Route path="/agent" element={guard('/agent', <AiAgent />)} />
+        <Route path="/portal" element={guard('/portal', <Portal />)} />
+        <Route path="/audit" element={guard('/audit', <Audit />)} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </Shell>
+      </Suspense>
+    </AppShell>
   );
 }

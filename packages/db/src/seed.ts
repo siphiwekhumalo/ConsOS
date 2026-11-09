@@ -23,7 +23,7 @@ const DEMO: DemoTenant[] = [
     slug: 'demo-civils',
     name: 'Demo Civils (Pty) Ltd',
     tier: 'mid_market',
-    modules: ['mod_field', 'mod_finance'],
+    modules: ['mod_commercial', 'mod_field', 'mod_finance'],
     ownerEmail: 'owner@demo-civils.test',
     projects: [
       { code: 'DC-001', name: 'N3 Interchange Upgrade', contractForm: 'GCC_2015', contractValue: '48500000.00' },
@@ -34,10 +34,16 @@ const DEMO: DemoTenant[] = [
     slug: 'demo-mining',
     name: 'Demo Mining Contractors (Pty) Ltd',
     tier: 'enterprise',
-    modules: ['mod_field', 'mod_finance', 'mod_payroll', 'mod_procurement', 'mod_hse', 'mod_ai'],
+    modules: [
+      'mod_commercial', 'mod_payroll', 'mod_crm', 'mod_finance', 'mod_estimating', 'mod_procurement',
+      'mod_field', 'mod_fleet', 'mod_hse', 'mod_portal', 'mod_ai',
+    ],
     ownerEmail: 'owner@demo-mining.test',
     projects: [
       { code: 'DM-101', name: 'Shaft 4 Refurbishment', contractForm: 'FIDIC_YELLOW', contractValue: '312000000.00' },
+      { code: 'DM-102', name: 'Tailings Dam Raise Phase 3', contractForm: 'NEC4_ECC', contractValue: '186400000.00' },
+      { code: 'DM-103', name: 'Processing Plant Conveyor Upgrade', contractForm: 'FIDIC_RED', contractValue: '94750000.00' },
+      { code: 'DM-104', name: 'Haul Road Rehabilitation', contractForm: 'GCC_2015', contractValue: '41200000.00' },
     ],
   },
 ];

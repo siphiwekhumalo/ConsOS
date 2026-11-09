@@ -149,6 +149,53 @@ export const aiJobs = pgTable('ai_jobs', {
   ...timestamps,
 });
 
+export const estimateStage = pgEnum('estimate_stage', [
+  'intake',
+  'technical_review',
+  'client_approval',
+  'baseline_locked',
+  'rejected',
+]);
+
+export const estimates = pgTable('estimates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  ref: text('ref').notNull(),
+  title: text('title').notNull(),
+  clientName: text('client_name').notNull(),
+  clientReference: text('client_reference'),
+  stage: estimateStage('stage').notNull().default('intake'),
+  projectId: uuid('project_id'),
+  sourceFileId: uuid('source_file_id'),
+  clientApprovalRef: text('client_approval_ref'),
+  rejectionReason: text('rejection_reason'),
+  baselineClientTotal: numeric('baseline_client_total', { precision: 18, scale: 2 }),
+  baselineInternalTotal: numeric('baseline_internal_total', { precision: 18, scale: 2 }),
+  lockedAt: timestamp('locked_at', { withTimezone: true }),
+  lockedBy: uuid('locked_by'),
+  createdBy: uuid('created_by').notNull(),
+  ...timestamps,
+});
+
+export const estimateLines = pgTable('estimate_lines', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  estimateId: uuid('estimate_id').notNull(),
+  lineNo: text('line_no').notNull(),
+  description: text('description').notNull(),
+  unit: text('unit').notNull(),
+  clientQty: numeric('client_qty', { precision: 18, scale: 3 }),
+  clientRate: numeric('client_rate', { precision: 18, scale: 2 }),
+  internalQty: numeric('internal_qty', { precision: 18, scale: 3 }),
+  internalRate: numeric('internal_rate', { precision: 18, scale: 2 }),
+  source: text('source').notNull().default('manual'),
+  ...timestamps,
+});
+
+export type Estimate = typeof estimates.$inferSelect;
+export type EstimateLine = typeof estimateLines.$inferSelect;
+export type EstimateStage = (typeof estimateStage.enumValues)[number];
+
 export type Tenant = typeof tenants.$inferSelect;
 export type SiteDiaryEntry = typeof siteDiaryEntries.$inferSelect;
 export type AuditEvent = typeof auditEvents.$inferSelect;

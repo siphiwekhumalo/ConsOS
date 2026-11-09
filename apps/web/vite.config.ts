@@ -9,8 +9,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': process.env.API_CORE_URL ?? 'http://localhost:3000',
-      '/sync': process.env.SYNC_URL ?? 'http://localhost:8081',
-      '/ai': process.env.AI_URL ?? 'http://localhost:8000',
+      '/sync': process.env.SYNC_URL ?? 'http://localhost:18081',
+      '/ai': process.env.AI_URL ?? 'http://localhost:8010',
     },
   },
 });

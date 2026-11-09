@@ -1,0 +1,101 @@
+# ConstructOS: CI/CD to production (https://baheka-construct-os.com)
+#
+# Every branch:  tests (TypeScript + database isolation, Go, Python, Terraform, shell)
+# main only:     build & push 4 images to ECR -> manual release gate -> deploy
+#                (migrations as a one-off ECS task, rolling ECS deploy with
+#                automatic rollback, then smoke tests against the live domain)
+#
+# Agent queues (Buildkite Elastic CI Stack for AWS recommended):
+#   default : any agent with Docker; no AWS permissions needed
+#   deploy  : agents whose IAM role has the Terraform output `buildkite_deploy_policy_arn`
+#
+# Infrastructure changes run in a separate pipeline: .buildkite/infra.yml
+
+env:
+  DEPLOY_ENV: production
+  DOCKER_BUILDKIT: "1"
+
+steps:
+  - group: ":white_check_mark: Tests"
+    key: tests
+    steps:
+      - label: ":typescript: TypeScript: DB isolation, audit, formulas, API, web build"
+        key: test-js
+        command: bash .buildkite/scripts/test-js.sh
+        agents: { queue: default }
+        timeout_in_minutes: 30
+        retry:
+          automatic:
+            - exit_status: -1 # agent lost
+              limit: 2
+
+      - label: ":golang: Edge-sync service (Go)"
+        key: test-go
+        command: bash .buildkite/scripts/test-go.sh
+        agents: { queue: default }
+        timeout_in_minutes: 15
+
+      - label: ":python: AI engine (Python)"
+        key: test-python
+        command: bash .buildkite/scripts/test-python.sh
+        agents: { queue: default }
+        timeout_in_minutes: 15
+
+      - label: ":terraform: Terraform fmt + validate"
+        key: test-terraform
+        command: bash .buildkite/scripts/terraform-validate.sh
+        agents: { queue: default }
+        timeout_in_minutes: 10
+
+      - label: ":bash: ShellCheck"
+        key: test-shell
+        command: docker run --rm -v "$$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.10.0 -x .buildkite/scripts/*.sh
+        agents: { queue: default }
+        timeout_in_minutes: 5
+
+  - wait: ~
+
+  - label: ":docker: Build & push {{matrix}}"
+    key: images
+    branches: main
+    command: bash .buildkite/scripts/build-push.sh {{matrix}}
+    matrix:
+      - api-core
+      - sync-service
+      - ai-engine
+      - web
+    agents: { queue: deploy }
+    timeout_in_minutes: 30
+    retry:
+      automatic:
+        - exit_status: -1
+          limit: 2
+
+  - wait: ~
+
+  - block: ":rocket: Release to baheka-construct-os.com?"
+    key: release-gate
+    branches: main
+    prompt: "Images for this commit are in ECR. Releasing runs database migrations and rolls all four services."
+    fields:
+      - text: "Release notes / change ticket"
+        key: release-notes
+        required: false
+
+  - label: ":rocket: Deploy to production"
+    key: deploy
+    branches: main
+    depends_on: release-gate
+    command: bash .buildkite/scripts/deploy.sh
+    agents: { queue: deploy }
+    concurrency: 1
+    concurrency_group: "constructos/production/deploy"
+    timeout_in_minutes: 45
+
+  - label: ":mag: Smoke test https://baheka-construct-os.com"
+    key: smoke
+    branches: main
+    depends_on: deploy
+    command: bash .buildkite/scripts/smoke.sh https://baheka-construct-os.com
+    agents: { queue: default }
+    timeout_in_minutes: 10

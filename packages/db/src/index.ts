@@ -11,4 +11,7 @@ export type {
   UserRole,
   AuditEvent,
   FileRecord,
+  Estimate,
+  EstimateLine,
+  EstimateStage,
 } from './schema';

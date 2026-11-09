@@ -1,9 +1,14 @@
 export type ModuleId =
-  | 'mod_field'
-  | 'mod_finance'
+  | 'mod_commercial'
   | 'mod_payroll'
+  | 'mod_crm'
+  | 'mod_finance'
+  | 'mod_estimating'
   | 'mod_procurement'
+  | 'mod_field'
+  | 'mod_fleet'
   | 'mod_hse'
+  | 'mod_portal'
   | 'mod_ai';
 
 export type Role = 'owner' | 'admin' | 'project_manager' | 'site_foreman' | 'finance' | 'viewer';
@@ -91,6 +96,68 @@ export interface AiJob {
   result: BoqResult | DiaryReviewResult | null;
   error: string | null;
   createdAt: string;
+}
+
+export type EstimateStage = 'intake' | 'technical_review' | 'client_approval' | 'baseline_locked' | 'rejected';
+export type LineFlag = 'missing_internal' | 'missing_client' | 'qty_mismatch' | 'rate_variance' | 'under_recovery';
+
+export interface EstimateSummary {
+  clientTotal: string;
+  internalTotal: string;
+  margin: string;
+  marginPct: string | null;
+  leakage: string;
+  lines: number;
+  flaggedLines: number;
+  flagCounts: Record<LineFlag, number>;
+}
+
+export interface EstimateLine {
+  id: string;
+  lineNo: string;
+  description: string;
+  unit: string;
+  source: string;
+  clientQty: string | null;
+  clientRate: string | null;
+  clientAmount: string | null;
+  internalQty: string | null;
+  internalRate: string | null;
+  internalAmount: string | null;
+  margin: string | null;
+  flags: LineFlag[];
+}
+
+export interface EstimateHeader {
+  id: string;
+  ref: string;
+  title: string;
+  clientName: string;
+  clientReference: string | null;
+  stage: EstimateStage;
+  projectId: string | null;
+  clientApprovalRef: string | null;
+  rejectionReason: string | null;
+  baselineClientTotal: string | null;
+  baselineInternalTotal: string | null;
+  lockedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  summary: EstimateSummary;
+}
+
+export interface Estimate extends EstimateHeader {
+  lines: EstimateLine[];
+}
+
+export interface LineInput {
+  lineNo: string;
+  description: string;
+  unit: string;
+  clientQty?: string | null;
+  clientRate?: string | null;
+  internalQty?: string | null;
+  internalRate?: string | null;
 }
 
 export interface FormulaResult {
@@ -188,6 +255,22 @@ export const api = {
 
   evaluateFormula: (formula: string, variables: Record<string, string | boolean>) =>
     post<FormulaResult>('/api/v1/formulas/evaluate', { formula, variables }),
+
+  estimates: () => request<EstimateHeader[]>('/api/v1/estimates'),
+  estimate: (id: string) => request<Estimate>(`/api/v1/estimates/${id}`),
+  createEstimate: (body: { ref: string; title: string; clientName: string; clientReference?: string }) =>
+    post<Estimate>('/api/v1/estimates', body),
+  addLine: (id: string, body: LineInput) => post<Estimate>(`/api/v1/estimates/${id}/lines`, body),
+  updateLine: (id: string, lineId: string, body: Partial<LineInput>) =>
+    request<Estimate>(`/api/v1/estimates/${id}/lines/${lineId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteLine: (id: string, lineId: string) => request<Estimate>(`/api/v1/estimates/${id}/lines/${lineId}`, { method: 'DELETE' }),
+  importAiLines: (id: string, jobId: string) => post<Estimate>(`/api/v1/estimates/${id}/import-ai`, { jobId }),
+  transitionEstimate: (
+    id: string,
+    body: { to: EstimateStage; note?: string; clientApprovalRef?: string; acknowledgeVariance?: boolean },
+  ) => post<Estimate>(`/api/v1/estimates/${id}/transition`, body),
+  entityHistory: (entityType: string, entityId: string) =>
+    request<AuditEvent[]>(`/api/v1/audit/events?entityType=${entityType}&entityId=${entityId}&limit=50`),
 
   aiJobs: () => request<AiJob[]>('/ai/v1/jobs'),
   aiJob: (id: string) => request<AiJob>(`/ai/v1/jobs/${id}`),

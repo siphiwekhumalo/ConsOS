@@ -6,8 +6,10 @@
 # Infrastructure only (run the apps yourself with pnpm/uv):  docker compose up -d
 # Everything in containers:                                  docker compose --profile app up -d --build
 #
-# Values come from .env in this folder (see README). Ports can be overridden
-# when the defaults are already taken on your machine.
+# Values come from .env in this folder (see README). Host ports deliberately
+# avoid the common defaults (5432, 6379, 8000, 8080...) so this stack can run
+# alongside other projects; override any of them in .env if needed:
+#   PG_PORT=5434 REDIS_PORT=6380 S3_PORT=9094 API_PORT=3000 SYNC_PORT=18081 AI_PORT=8010 WEB_PORT=8070
 
 x-app-env: &app-env
   JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
@@ -27,7 +29,7 @@ services:
       POSTGRES_USER: constructos_owner
       POSTGRES_PASSWORD: owner_local_dev
     ports:
-      - "${PG_PORT:-5432}:5432"
+      - "${PG_PORT:-5434}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -40,7 +42,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6380}:6379"
 
   # S3-compatible mock (accepts any credentials, does not verify signatures).
   s3:
@@ -48,7 +50,7 @@ services:
     environment:
       COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: constructos-tenant-files
     ports:
-      - "${S3_PORT:-9090}:9090"
+      - "${S3_PORT:-9094}:9090"
 
   # ---------------------------------------------------------------- application (profile: app)
   migrate:
@@ -57,6 +59,7 @@ services:
     command: ["node", "node_modules/@constructos/db/dist/migrate.js"]
     environment:
       DATABASE_URL_OWNER: postgres://constructos_owner:owner_local_dev@postgres:5432/constructos
+      SEED_PASSWORD: ${SEED_PASSWORD:-}   # used by the seed command (see README)
     depends_on:
       postgres: { condition: service_healthy }
 
@@ -67,7 +70,7 @@ services:
       <<: *app-env
       DATABASE_URL_APP: postgres://constructos_app:app_local_dev@postgres:5432/constructos
       REDIS_URL: redis://redis:6379
-      S3_PUBLIC_ENDPOINT: http://localhost:${S3_PORT:-9090}   # what the browser can reach
+      S3_PUBLIC_ENDPOINT: http://localhost:${S3_PORT:-9094}   # what the browser can reach
       WEB_ORIGIN: http://localhost:${WEB_PORT:-8070}
     ports:
       - "${API_PORT:-3000}:3000"
@@ -83,7 +86,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       SYNC_DATABASE_URL: postgres://constructos_sync:sync_local_dev@postgres:5432/constructos
     ports:
-      - "${SYNC_PORT:-8081}:8081"
+      - "${SYNC_PORT:-18081}:8081"
     depends_on:
       migrate: { condition: service_completed_successfully }
 
@@ -97,13 +100,15 @@ services:
       AI_PROVIDER: ${AI_PROVIDER:-fake}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
-      - "${AI_PORT:-8000}:8000"
+      - "${AI_PORT:-8010}:8000"
     depends_on:
       migrate: { condition: service_completed_successfully }
 
   web:
     profiles: ["app"]
     build: { context: ., dockerfile: apps/web/Dockerfile }
+    volumes:
+      - ./apps/web/nginx.local.conf:/etc/nginx/conf.d/default.conf:ro   # adds the local path routing
     ports:
       - "${WEB_PORT:-8070}:80"
     depends_on: [api-core, sync-service, ai-engine]

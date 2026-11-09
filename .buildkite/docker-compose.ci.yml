@@ -1,0 +1,30 @@
+# TypeScript test run with a real Postgres, so the tenant-isolation, audit
+# ledger, service-role and estimate suites execute (they skip without a DB).
+name: constructos-ci
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: constructos
+      POSTGRES_USER: constructos_owner
+      POSTGRES_PASSWORD: ci_owner_password
+    volumes:
+      - ../docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U constructos_owner -d constructos"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  js:
+    build:
+      context: ..
+      dockerfile: .buildkite/Dockerfile.ci
+    environment:
+      CI: "true"
+      DATABASE_URL_OWNER: postgres://constructos_owner:ci_owner_password@postgres:5432/constructos
+      DATABASE_URL_APP: postgres://constructos_app:app_local_dev@postgres:5432/constructos
+    depends_on:
+      postgres:
+        condition: service_healthy

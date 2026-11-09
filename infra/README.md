@@ -1,37 +1,25 @@
 # Infrastructure (Terraform, af-south-1)
 
-> **Not yet validated.** This code has not been through `terraform validate` or `plan`.
-> Run both before first use.
+Production runbook: **[docs/deployment.md](../docs/deployment.md)**.
 
-## What this provisions
+| File | What it defines |
+|---|---|
+| `network.tf` | VPC (public, private and database subnets), NAT, flow logs, security groups |
+| `database.tf` | KMS key, Aurora PostgreSQL 16 Serverless v2, generated passwords and connection URLs |
+| `redis.tf` | ElastiCache Redis (TLS + auth token) |
+| `secrets.tf` | Secrets Manager entries injected into ECS tasks |
+| `storage.tf` | Tenant-files bucket (with CORS for the domain), Object Lock audit-anchor bucket |
+| `dns.tf` | Route 53 zone/records and ACM certificate for `baheka-construct-os.com` |
+| `alb.tf` | Load balancer, HTTPS listener, path routing, `www` redirect, WAF |
+| `compute.tf` | ECR repositories, ECS cluster, log groups |
+| `iam.tf` | ECS execution/task roles, Buildkite deploy policy |
+| `services.tf` | Task definitions, Fargate services, autoscaling, deploy config in SSM |
+| `environments/production.tfvars` | Non-secret production settings |
 
-- VPC across 2 AZs (configurable to 3): public, private and isolated database subnets; NAT per AZ (or a single NAT for staging); VPC flow logs; S3 gateway endpoint.
-- Security groups: ALB (443 in), API (3000 from ALB only), DB (5432 from API only).
-- Aurora PostgreSQL 16 Serverless v2: writer plus N readers, encrypted with a customer KMS key, TLS enforced, 35-day backups, master password managed by Secrets Manager.
-- S3: tenant-files bucket (private, KMS, versioned, TLS-only) and an **Object Lock COMPLIANCE** bucket for audit-ledger anchors.
-- ECR repository (immutable tags, scan on push) and ECS Fargate cluster with a log group.
-
-**Next increment:** ALB with ACM wildcard certificate, ECS task definition and service for the API, WAF,
-CloudFront for the web app, ElastiCache, Route 53.
-
-## Usage
+Static checks (also run in CI):
 
 ```bash
-cd infra/terraform
-cp staging.tfvars.example staging.tfvars
-terraform init        # after configuring the S3 backend in versions.tf
-terraform plan  -var-file=staging.tfvars
-terraform apply -var-file=staging.tfvars
+docker run --rm -v "$PWD:/tf" -w /tf hashicorp/terraform:1.9.8 fmt -check -recursive
+docker run --rm -v "$PWD:/tf" -w /tf hashicorp/terraform:1.9.8 init -backend=false
+docker run --rm -v "$PWD:/tf" -w /tf hashicorp/terraform:1.9.8 validate
 ```
-
-## Database bootstrap (once per environment)
-
-Migrations run as the Aurora master user (`constructos_owner`), using credentials from the secret in the
-`aurora_master_secret_arn` output. The migration creates `constructos_app` as `NOLOGIN`. Give it a
-login once, with a password generated into Secrets Manager (never typed into code or tickets):
-
-```sql
-ALTER ROLE constructos_app LOGIN PASSWORD '<from Secrets Manager>';
-```
-
-The API task receives `DATABASE_URL_APP` from Secrets Manager through the ECS task definition.

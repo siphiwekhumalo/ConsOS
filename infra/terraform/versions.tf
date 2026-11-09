@@ -6,16 +6,16 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.80"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
-  # Configure remote state per environment (S3 bucket + DynamoDB lock table) before first apply:
-  # backend "s3" {
-  #   bucket         = "<state-bucket>"
-  #   key            = "constructos/<env>/terraform.tfstate"
-  #   region         = "af-south-1"
-  #   dynamodb_table = "<lock-table>"
-  #   encrypt        = true
-  # }
+  # Remote state is required before the first apply: it holds generated secrets,
+  # so the bucket must be private, versioned and KMS-encrypted.
+  #   terraform init -backend-config=backend.hcl
+  backend "s3" {}
 }
 
 provider "aws" {

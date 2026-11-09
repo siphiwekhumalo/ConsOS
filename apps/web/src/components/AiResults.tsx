@@ -1,96 +1,133 @@
-import { formatZar, label, type AiJob, type BoqResult, type DiaryReviewResult } from '../api';
-import { Badge, Card } from './ui';
+import { useState } from 'react';
+import { AlertTriangle, Bot, ChevronDown, FileSpreadsheet, Loader2, ShieldAlert } from 'lucide-react';
+import type { AiJob, BoqResult, DiaryReviewResult } from '../api';
+import { dateTime, label, zar } from '../lib/format';
+import { Badge, Card, StatusPill, cx } from './ui';
 
-const STATUS_TONE = { queued: 'slate', running: 'blue', succeeded: 'green', failed: 'red' } as const;
-const SEVERITY_TONE = { low: 'slate', medium: 'amber', high: 'red' } as const;
+const STATUS: Record<AiJob['status'], { tone: 'neutral' | 'brand' | 'good' | 'critical'; text: string }> = {
+  queued: { tone: 'neutral', text: 'Queued' },
+  running: { tone: 'brand', text: 'Analysing' },
+  succeeded: { tone: 'good', text: 'Complete' },
+  failed: { tone: 'critical', text: 'Failed' },
+};
+const SEVERITY = { low: 'good', medium: 'warning', high: 'critical' } as const;
 
-export function AiJobCard({ job }: { job: AiJob }) {
+export function AiJobCard({ job, projectName }: { job: AiJob; projectName?: string }) {
+  const [open, setOpen] = useState(job.status !== 'succeeded' ? false : true);
+  const boq = job.kind === 'boq_extraction';
+  const s = STATUS[job.status];
+  const pending = job.status === 'queued' || job.status === 'running';
+
   return (
-    <Card>
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-medium">{job.kind === 'boq_extraction' ? 'BOQ extraction' : 'Site diary risk review'}</span>
-        <Badge tone={STATUS_TONE[job.status]}>{job.status}</Badge>
-        {job.model && <span className="text-xs text-slate-400">{job.model}</span>}
-        <span className="ml-auto text-xs text-slate-400">{new Date(job.createdAt).toLocaleString('en-ZA')}</span>
-      </div>
-      {job.error && <p className="mt-2 text-sm text-red-600">{job.error}</p>}
-      {job.status === 'succeeded' && job.result && job.kind === 'boq_extraction' && <BoqView boq={job.result as BoqResult} />}
-      {job.status === 'succeeded' && job.result && job.kind === 'diary_risk_review' && (
-        <RiskView review={job.result as DiaryReviewResult} />
+    <Card padded={false}>
+      <button className="flex w-full items-center gap-3 p-4 text-left" onClick={() => setOpen(!open)} disabled={pending}>
+        <span className={cx('grid size-9 shrink-0 place-items-center rounded-lg', boq ? 'bg-brand-soft text-brand-ink' : 'bg-warning-soft text-warning-ink')}>
+          {boq ? <FileSpreadsheet className="size-[18px]" /> : <ShieldAlert className="size-[18px]" />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-ink">{boq ? 'Tender BOQ extraction' : 'Site diary risk review'}</div>
+          <div className="truncate text-xs text-ink-3">
+            {projectName && `${projectName} · `}
+            {dateTime(job.createdAt)}
+            {job.model && ` · ${job.model}`}
+          </div>
+        </div>
+        <Badge tone={s.tone}>
+          {pending && <Loader2 className="size-3 animate-spin" />}
+          {s.text}
+        </Badge>
+        {!pending && <ChevronDown className={cx('size-4 text-ink-3 transition-transform', open && 'rotate-180')} />}
+      </button>
+      {open && (
+        <div className="border-t border-line p-4">
+          {job.error && <p className="text-sm text-critical-ink">{job.error}</p>}
+          {job.status === 'succeeded' && job.result && (boq ? <BoqView boq={job.result as BoqResult} /> : <RiskView review={job.result as DiaryReviewResult} />)}
+        </div>
       )}
     </Card>
   );
 }
 
 function BoqView({ boq }: { boq: BoqResult }) {
-  const itemCount = boq.sections.reduce((n, s) => n + s.items.length, 0);
+  const items = boq.sections.reduce((n, s) => n + s.items.length, 0);
   return (
-    <div className="mt-3 space-y-3">
-      <p className="text-sm text-slate-600">
-        {boq.document_title ?? 'Untitled'} · {itemCount} items in {boq.sections.length} sections · {boq.currency}
-      </p>
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] text-ink-2">
+        <span><span className="font-medium text-ink">{boq.document_title ?? 'Untitled document'}</span></span>
+        <span>{items} line items</span>
+        <span>{boq.sections.length} bills</span>
+        <span>{boq.currency}</span>
+      </div>
       {boq.warnings.length > 0 && (
-        <ul className="list-disc space-y-1 rounded-md bg-amber-50 py-2 pl-6 pr-3 text-sm text-amber-900">
-          {boq.warnings.map((w, i) => (
-            <li key={i}>{w}</li>
-          ))}
-        </ul>
+        <div className="rounded-lg bg-warning-soft p-3">
+          <div className="flex items-center gap-2 text-[13px] font-medium text-warning-ink">
+            <AlertTriangle className="size-4" /> {boq.warnings.length} item(s) need review
+          </div>
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-6 text-[13px] text-warning-ink/90">
+            {boq.warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </div>
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="text-slate-500">
+      <div className="overflow-x-auto rounded-lg border border-line">
+        <table className="w-full text-sm">
+          <thead className="bg-surface-2 text-xs uppercase tracking-wide text-ink-3">
             <tr>
-              <th className="py-1 pr-3 font-medium">Item</th>
-              <th className="py-1 pr-3 font-medium">Description</th>
-              <th className="py-1 pr-3 font-medium">Unit</th>
-              <th className="py-1 pr-3 text-right font-medium">Qty</th>
-              <th className="py-1 pr-3 text-right font-medium">Rate</th>
-              <th className="py-1 text-right font-medium">Amount</th>
+              {['Item', 'Description', 'Unit', 'Qty', 'Rate', 'Amount'].map((h, i) => (
+                <th key={h} className={cx('px-3 py-2 font-medium', i >= 3 ? 'text-right' : 'text-left')}>{h}</th>
+              ))}
             </tr>
           </thead>
           {boq.sections.map((s) => (
             <tbody key={s.name}>
               <tr>
-                <td colSpan={6} className="pt-3 font-medium">
-                  {s.name}
-                </td>
+                <td colSpan={6} className="bg-surface-2/60 px-3 py-1.5 text-[13px] font-semibold text-ink">{s.name}</td>
               </tr>
               {s.items.map((it) => (
-                <tr key={it.item_no + it.description} className="border-t border-slate-100">
-                  <td className="py-1 pr-3 font-mono">{it.item_no}</td>
-                  <td className="py-1 pr-3">{it.description}</td>
-                  <td className="py-1 pr-3">{it.unit}</td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{it.quantity ?? '—'}</td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{formatZar(it.rate)}</td>
-                  <td className="py-1 text-right tabular-nums">{formatZar(it.amount)}</td>
+                <tr key={it.item_no + it.description} className="border-t border-line">
+                  <td className="px-3 py-2 font-mono text-[13px] text-ink-2">{it.item_no}</td>
+                  <td className="px-3 py-2 text-ink">{it.description}</td>
+                  <td className="px-3 py-2 text-ink-2">{it.unit}</td>
+                  <td className="num px-3 py-2 text-right">{it.quantity ?? '—'}</td>
+                  <td className="num px-3 py-2 text-right">{zar(it.rate, true)}</td>
+                  <td className="num px-3 py-2 text-right">{zar(it.amount, true)}</td>
                 </tr>
               ))}
             </tbody>
           ))}
         </table>
       </div>
+      <p className="text-xs text-ink-3">AI-extracted figures are suggestions. Check them against the source document before pricing.</p>
     </div>
   );
 }
 
 function RiskView({ review }: { review: DiaryReviewResult }) {
   return (
-    <div className="mt-3 space-y-3">
-      <p className="text-sm">{review.summary}</p>
+    <div className="space-y-3">
+      <p className="text-sm text-ink">{review.summary}</p>
       {review.risks.map((r, i) => (
-        <div key={i} className="rounded-md border border-slate-200 p-3 text-sm">
-          <div className="flex items-center gap-2">
-            <Badge tone={SEVERITY_TONE[r.severity]}>{r.severity}</Badge>
-            <span className="font-medium capitalize">{label(r.category)}</span>
-            <span className="ml-auto text-xs text-slate-400">{r.evidence_dates.join(', ')}</span>
+        <div key={i} className="rounded-lg border border-line p-3.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill status={SEVERITY[r.severity]}>
+              <span className="capitalize">{r.severity}</span>
+            </StatusPill>
+            <span className="text-sm font-medium capitalize text-ink">{label(r.category)}</span>
+            <span className="ml-auto text-xs text-ink-3">Evidence: {r.evidence_dates.join(', ')}</span>
           </div>
-          <p className="mt-1">{r.finding}</p>
-          <p className="mt-1 text-slate-600">
-            <span className="font-medium">Recommendation: </span>
+          <p className="mt-2 text-sm text-ink">{r.finding}</p>
+          <p className="mt-1 text-sm text-ink-2">
+            <span className="font-medium text-ink">Recommendation · </span>
             {r.recommendation}
           </p>
         </div>
       ))}
+      {review.risks.length === 0 && (
+        <div className="flex items-center gap-2 text-sm text-good-ink">
+          <Bot className="size-4" /> No material risks found in the reviewed entries.
+        </div>
+      )}
     </div>
   );
 }

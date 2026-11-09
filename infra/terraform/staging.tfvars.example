@@ -1,5 +1,0 @@
-environment         = "staging"
-single_nat_gateway  = true
-aurora_min_acu      = 0   # auto-pause when idle
-aurora_max_acu      = 2
-aurora_reader_count = 0
