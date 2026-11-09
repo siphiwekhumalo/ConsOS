@@ -288,8 +288,10 @@ Repository layout: `apps/api-core`, `apps/sync-service`, `apps/ai-engine`, `apps
 - Backends for modules 1, 2, 4, 5, 7, 8 and 9, and RFIs in module 6.
 - A general workflow/approval engine beyond estimates.
 - The mobile field app.
-- CI/CD pipeline and the AWS deployment of the app services.
-- SSO/MFA.
+- Running the CI/CD pipeline and the AWS deployment for real. Both are written and statically
+  validated (`docs/deployment.md`), but have not yet run against the account.
+- Emailing invite links (SES), SSO and MFA. User onboarding itself is built: one-time invite and
+  reset links, plus Buildkite organisation provisioning.
 - Production secrets management for service-role passwords.
 
 **Decisions needed:**

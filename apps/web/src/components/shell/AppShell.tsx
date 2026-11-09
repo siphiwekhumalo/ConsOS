@@ -135,8 +135,12 @@ export { Logo };
 
 function Breadcrumbs() {
   const { pathname } = useLocation();
-  const parts = pathname.split('/').filter(Boolean);
-  const root = ALL_NAV.find((n) => n.path === `/${parts[0] ?? ''}`) ?? ALL_NAV[0]!;
+  // Longest nav path that prefixes the URL (handles nested items like /settings/users).
+  const root =
+    [...ALL_NAV]
+      .sort((a, b) => b.path.length - a.path.length)
+      .find((n) => (n.path === '/' ? pathname === '/' : pathname === n.path || pathname.startsWith(`${n.path}/`))) ?? ALL_NAV[0]!;
+  const parts = pathname === root.path ? [''] : ['', 'detail'];
   const detail = useCrumb();
   return (
     <nav className="flex min-w-0 items-center gap-1.5 text-sm" aria-label="Breadcrumb">

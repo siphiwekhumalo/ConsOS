@@ -6,6 +6,7 @@
 import {
   bigint,
   boolean,
+  customType,
   date,
   integer,
   jsonb,
@@ -58,7 +59,7 @@ export const users = pgTable('users', {
     .references(() => tenants.id),
   email: text('email').notNull(),
   fullName: text('full_name').notNull(),
-  passwordHash: text('password_hash').notNull(),
+  passwordHash: text('password_hash'), // NULL until the user accepts their invite
   role: userRole('role').notNull(),
   isActive: boolean('is_active').notNull().default(true),
   ...timestamps,
@@ -147,6 +148,20 @@ export const aiJobs = pgTable('ai_jobs', {
   result: jsonb('result'),
   error: text('error'),
   ...timestamps,
+});
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
+
+export const userInvites = pgTable('user_invites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  purpose: text('purpose').notNull(),
+  tokenHash: bytea('token_hash').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const estimateStage = pgEnum('estimate_stage', [

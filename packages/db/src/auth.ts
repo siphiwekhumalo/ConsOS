@@ -5,7 +5,8 @@ import type { UserRole } from './schema';
 export interface LoginRecord {
   userId: string;
   tenantId: string;
-  passwordHash: string;
+  /** NULL for users who have not accepted their invite yet (they cannot log in). */
+  passwordHash: string | null;
   role: UserRole;
 }
 
@@ -21,7 +22,7 @@ export async function findLogin(
   const rows = await db.execute<{
     user_id: string;
     tenant_id: string;
-    password_hash: string;
+    password_hash: string | null;
     role: UserRole;
   }>(sql`select * from auth_find_login(${tenantSlug}, ${email})`);
   const row = rows[0];

@@ -42,6 +42,12 @@ export function relative(v: string | Date) {
 
 export const label = (s: string) => s.replace(/_/g, ' ');
 
+/** "project_manager" → "Project manager" (for option text, where CSS capitalisation doesn't apply). */
+export const sentence = (s: string) => {
+  const t = label(s);
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
 export const initials = (name: string) =>
   name
     .split(/\s+/)

@@ -26,10 +26,18 @@ export class AuthService {
     if (!record || !ok) {
       throw new UnauthorizedException('Invalid tenant, email or password');
     }
-    const claims: AccessTokenClaims = { sub: record.userId, tid: record.tenantId, role: record.role };
+    return this.issue(record.userId, record.tenantId, record.role);
+  }
+
+  async issue(userId: string, tenantId: string, role: AccessTokenClaims['role']) {
+    const claims: AccessTokenClaims = { sub: userId, tid: tenantId, role };
     return {
       accessToken: await this.jwt.signAsync(claims),
       expiresIn: this.config.JWT_TTL_SECONDS,
     };
+  }
+
+  async hashPassword(password: string) {
+    return hash(password);
   }
 }

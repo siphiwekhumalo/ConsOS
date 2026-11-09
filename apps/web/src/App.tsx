@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type ReactElement } from 'react';
-import { Navigate, Route, Routes } from 'react-router';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { api, ApiError, session, type Me } from './api';
 import { visibleGroups } from './modules';
 import { AppShell, Logo } from './components/shell/AppShell';
@@ -24,6 +24,8 @@ const Fleet = page(() => import('./pages/modules/Fleet'), 'Fleet');
 const Hse = page(() => import('./pages/modules/Hse'), 'Hse');
 const Portal = page(() => import('./pages/modules/Portal'), 'Portal');
 const Pipeline = page(() => import('./pages/commercial/Pipeline'), 'Pipeline');
+const Users = page(() => import('./pages/settings/Users'), 'Users');
+const AcceptInvite = page(() => import('./pages/AcceptInvite'), 'AcceptInvite');
 const EstimateDetail = page(() => import('./pages/commercial/EstimateDetail'), 'EstimateDetail');
 
 function PageFallback() {
@@ -39,6 +41,7 @@ function PageFallback() {
 }
 
 export function App() {
+  const location = useLocation();
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(Boolean(session.token));
 
@@ -66,6 +69,16 @@ export function App() {
           Loading your workspace…
         </div>
       </div>
+    );
+  }
+  // Invite / password-reset links work without (and replace) any current session.
+  if (location.pathname.startsWith('/invite/')) {
+    return (
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/invite/:token" element={<AcceptInvite onSignedIn={loadMe} />} />
+        </Routes>
+      </Suspense>
     );
   }
   if (!me) return <Login onLoggedIn={loadMe} />;
@@ -102,6 +115,7 @@ export function App() {
         <Route path="/agent" element={guard('/agent', <AiAgent />)} />
         <Route path="/portal" element={guard('/portal', <Portal />)} />
         <Route path="/audit" element={guard('/audit', <Audit />)} />
+        <Route path="/settings/users" element={guard('/settings/users', <Users me={me} />)} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>

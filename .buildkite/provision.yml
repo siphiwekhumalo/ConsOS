@@ -1,0 +1,62 @@
+# Provision a customer organisation in production: creates the tenant, enables
+# its modules and creates the first owner with a one-time invite link (72 h).
+# Everyone else is then invited by that owner from Settings → Users & access.
+#
+# Create a separate Buildkite pipeline for this file, restricted to the
+# platform operations team. Runs on DEPLOY_QUEUE (agents with the deploy policy).
+
+env:
+  DEPLOY_ENV: production
+
+steps:
+  - block: ":office: Provision a customer organisation"
+    key: details
+    prompt: "This creates a new organisation on https://baheka-construct-os.com and an invite for its first owner."
+    fields:
+      - text: "Organisation ID"
+        key: org-id
+        hint: "What users type at sign-in. Lowercase letters, digits and hyphens, e.g. acme-civils"
+        required: true
+      - text: "Organisation name"
+        key: org-name
+        hint: "Legal / display name, e.g. Acme Civils (Pty) Ltd"
+        required: true
+      - select: "Tier"
+        key: org-tier
+        default: "mid_market"
+        options:
+          - { label: "Standard", value: "standard" }
+          - { label: "Mid-market", value: "mid_market" }
+          - { label: "Enterprise", value: "enterprise" }
+      - select: "Modules"
+        key: org-modules
+        multiple: true
+        required: true
+        default: ["mod_commercial", "mod_field"]
+        options:
+          - { label: "0 · Administration & Commercial", value: "mod_commercial" }
+          - { label: "1 · HRIS & SARS Payroll", value: "mod_payroll" }
+          - { label: "2 · CRM & Bids", value: "mod_crm" }
+          - { label: "3 · Finance & CVR", value: "mod_finance" }
+          - { label: "4 · Estimating & Takeoff", value: "mod_estimating" }
+          - { label: "5 · Supply Chain & Procurement", value: "mod_procurement" }
+          - { label: "6 · Field Operations", value: "mod_field" }
+          - { label: "7 · Fleet & Equipment", value: "mod_fleet" }
+          - { label: "8 · HSE & Safety", value: "mod_hse" }
+          - { label: "9 · Client Portal", value: "mod_portal" }
+          - { label: "10 · AI Operations Agent", value: "mod_ai" }
+      - text: "First owner: full name"
+        key: owner-name
+        required: true
+      - text: "First owner: work email"
+        key: owner-email
+        required: true
+
+  - label: ":office: Create organisation and owner invite"
+    depends_on: details
+    command: bash .buildkite/scripts/provision-org.sh
+    agents:
+      queue: "${DEPLOY_QUEUE:-deploy}"
+    concurrency: 1
+    concurrency_group: "constructos/production/provision"
+    timeout_in_minutes: 15

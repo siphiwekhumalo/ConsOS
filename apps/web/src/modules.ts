@@ -14,6 +14,7 @@ import {
   Users,
   Eye,
   Inbox,
+  UserCog,
   type LucideIcon,
 } from 'lucide-react';
 import type { ModuleId, Role } from './api';
@@ -82,6 +83,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/agent', label: 'AI Operations Agent', icon: Bot, module: 'mod_ai', moduleNo: 10, roles: COMMERCIAL, live: true, description: 'Document intelligence and risk audits' },
       { path: '/portal', label: 'Client Portal', icon: Eye, module: 'mod_portal', moduleNo: 9, roles: ['owner', 'admin', 'project_manager'], live: false, description: 'Owner progress views and sign-offs' },
       { path: '/audit', label: 'Audit Trail', icon: ScrollText, module: null, roles: ['owner', 'admin', 'finance'], live: true, description: 'Tamper-evident ledger' },
+      { path: '/settings/users', label: 'Users & access', icon: UserCog, module: null, roles: ['owner', 'admin'], live: true, description: 'Invite people and manage roles' },
     ],
   },
 ];

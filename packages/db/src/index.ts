@@ -1,6 +1,7 @@
 export * from './client';
 export * from './auth';
 export * from './audit';
+export * from './invites';
 export * from './modules';
 export * as schema from './schema';
 export type {

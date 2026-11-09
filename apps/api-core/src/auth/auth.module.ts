@@ -7,6 +7,7 @@ import { REDIS, type MaybeRedis } from '../redis/redis.module';
 import { RedisThrottlerStorage } from '../redis/redis-throttler.storage';
 import { AccessGuard } from './access.guard';
 import { AuthController } from './auth.controller';
+import { InvitesController } from './invites.controller';
 import { AuthService } from './auth.service';
 import { EntitlementsService } from './entitlements.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -30,7 +31,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, InvitesController],
   providers: [
     AuthService,
     EntitlementsService,

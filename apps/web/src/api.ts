@@ -160,6 +160,31 @@ export interface LineInput {
   internalRate?: string | null;
 }
 
+export interface OrgUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: Role;
+  isActive: boolean;
+  status: 'active' | 'invited' | 'deactivated';
+  inviteExpiresAt: string | null;
+  createdAt: string;
+}
+
+export interface InviteLink {
+  inviteUrl: string;
+  expiresAt: string;
+  purpose?: 'invite' | 'reset';
+}
+
+export interface InviteInfo {
+  purpose: 'invite' | 'reset';
+  email: string;
+  fullName: string;
+  organisation: { name: string; id: string };
+  expiresAt: string;
+}
+
 export interface FormulaResult {
   ok: boolean;
   variables?: string[];
@@ -226,6 +251,16 @@ export const api = {
   login: (tenant: string, email: string, password: string) =>
     post<{ accessToken: string }>('/api/v1/auth/login', { tenant, email, password }),
   me: () => request<Me>('/api/v1/me'),
+
+  users: () => request<OrgUser[]>('/api/v1/users'),
+  inviteUser: (body: { email: string; fullName: string; role: Role }) =>
+    post<InviteLink & { user: Pick<OrgUser, 'id' | 'email' | 'fullName' | 'role'> }>('/api/v1/users/invite', body),
+  userLink: (id: string) => post<InviteLink>(`/api/v1/users/${id}/link`, {}),
+  updateUser: (id: string, body: { role?: Role; isActive?: boolean }) =>
+    request<Pick<OrgUser, 'id' | 'role' | 'isActive'>>(`/api/v1/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  inviteInfo: (token: string) => request<InviteInfo>(`/api/v1/auth/invite/${encodeURIComponent(token)}`),
+  acceptInvite: (token: string, password: string) =>
+    post<{ accessToken: string; organisation: { id: string; name: string } }>('/api/v1/auth/invite/accept', { token, password }),
 
   projects: () => request<Project[]>('/api/v1/projects'),
   createProject: (body: { code: string; name: string; contractForm?: string; contractValue?: string }) =>

@@ -1,11 +1,11 @@
-﻿# ConstructOS infrastructure (Terraform, af-south-1). Run this pipeline manually
+# ConstructOS infrastructure (Terraform, af-south-1). Run this pipeline manually
 # or on changes under infra/. It plans, waits for a human to approve, then
 # applies the same commit.
 #
 # Required pipeline environment (Buildkite pipeline settings, not in code):
 #   TF_STATE_BUCKET  S3 bucket for Terraform state (private, versioned, KMS)
 #   TF_LOCK_TABLE    DynamoDB table for state locking
-# Agent queue `infra`: agents with an IAM role allowed to manage the stack.
+# INFRA_QUEUE (default "infra"): a queue in your cluster whose agents may manage the stack.
 
 env:
   DEPLOY_ENV: production
@@ -14,7 +14,8 @@ steps:
   - label: ":terraform: Plan (production)"
     key: plan
     command: bash .buildkite/scripts/terraform.sh plan
-    agents: { queue: infra }
+    agents:
+      queue: "${INFRA_QUEUE:-infra}"
     concurrency: 1
     concurrency_group: "constructos/production/terraform"
     timeout_in_minutes: 20
@@ -26,7 +27,8 @@ steps:
   - label: ":terraform: Apply (production)"
     depends_on: apply-gate
     command: bash .buildkite/scripts/terraform.sh apply
-    agents: { queue: infra }
+    agents:
+      queue: "${INFRA_QUEUE:-infra}"
     concurrency: 1
     concurrency_group: "constructos/production/terraform"
     timeout_in_minutes: 60

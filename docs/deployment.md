@@ -93,26 +93,63 @@ Get POPIA sign-off before AI processes personal information. Until the key is se
 cleanly; set `ai_provider = "fake"` if you want them to succeed with placeholder results.
 
 ### 6. Buildkite
-- **Agents:** run the **Elastic CI Stack for AWS** in af-south-1 with three queues:
+Buildkite clusters only accept steps for queues that exist in the cluster. The pipelines are written
+around that:
 
-  | Queue | Purpose | IAM permissions |
-  |---|---|---|
-  | `default` | Tests | None needed |
-  | `deploy` | Image builds and releases | Attach the Terraform output `buildkite_deploy_policy_arn` to this stack's instance role, or set `buildkite_agent_role_name` and re-apply. The policy can only push to these repositories and roll this cluster. |
-  | `infra` | Terraform | Permissions to manage the whole stack; keep this queue separate and tightly held |
+| Queue | Used by | Agents need | Setting |
+|---|---|---|---|
+| your cluster's **default queue** | All test steps; they name no queue | Docker; no AWS permissions | none |
+| **deploy** | Image builds, releases, organisation provisioning | The IAM policy from the Terraform output `buildkite_deploy_policy_arn`. Attach it to the agents' role, or set `buildkite_agent_role_name` and re-apply. It can only push to these ECR repositories and run/roll tasks in this cluster. | Pipeline env `DEPLOY_QUEUE` (default `deploy`) |
+| **infra** | Terraform plan/apply | Permissions to manage the whole stack; keep it separate and tightly held | Pipeline env `INFRA_QUEUE` (default `infra`) |
 
-- **Pipeline `constructos`:**
-  - Repository: this one. Default branch: `main`.
-  - Steps: `buildkite-agent pipeline upload .buildkite/pipeline.yml`
-- **Pipeline `constructos-infra`:**
-  - Steps: `buildkite-agent pipeline upload .buildkite/infra.yml`
-  - Environment: `TF_STATE_BUCKET` and `TF_LOCK_TABLE`
-- **Optional:** restrict who can unblock the **Release** step, using Buildkite teams or `allowed_teams` on the block step.
+To set it up:
+1. In Buildkite, go to **Agents → (your cluster) → Queues** and create `deploy` and `infra`, or point
+   `DEPLOY_QUEUE`/`INFRA_QUEUE` at queues you already have. Then run agents for them; the
+   **Elastic CI Stack for AWS** in af-south-1 is the simplest option.
+2. Create three pipelines from this repository. Default branch is `main`.
 
-### 7. First tenant and users
-Production starts empty: no demo data and no users. **A tenant-provisioning path is not built yet**
-(see `docs/constructos-overview.md`, §9). Until it is, there's no supported way to create the first
-organisation and owner in production. Build it before go-live.
+| Pipeline | Steps | Environment | Who can run it |
+|---|---|---|---|
+| `constructos` | `buildkite-agent pipeline upload` (finds `.buildkite/pipeline.yml`) | — | — |
+| `constructos-infra` | `buildkite-agent pipeline upload .buildkite/infra.yml` | `TF_STATE_BUCKET`, `TF_LOCK_TABLE` | — |
+| `constructos-provision` | `buildkite-agent pipeline upload .buildkite/provision.yml` | — | Platform operations team only |
+
+Builds of `main` add the release steps (`.buildkite/release.yml`) automatically. Branch builds only
+run tests, so they work before the `deploy` queue exists.
+
+Optionally, restrict who can unblock the **Release** step with Buildkite teams.
+
+### 7. Creating organisations and users
+Nobody ever sets, sends or knows another person's password. Every account is activated through a
+**one-time link**:
+- valid for 72 hours (24 hours for a password reset);
+- single use;
+- stored only as a hash.
+
+**A new customer organisation** is created by the platform team:
+1. Run the `constructos-provision` pipeline.
+2. Fill in the form: organisation ID (what users type at sign-in), name, tier, modules, and the first owner's name and work email.
+3. The job creates the organisation and prints the owner's invite link in the job log.
+4. Send the link privately to that person. They open it, set their own password and are signed in.
+
+**Everyone else** is added by that organisation's owners or admins, in the app under
+**Intelligence & governance → Users & access**:
+1. Click **Invite user** and enter the name, email and role.
+2. Copy the link that appears and share it privately.
+
+The same page handles:
+- **Role changes**.
+- **Password reset:** issues a new one-time link. The old password works until the new one is set.
+- **Deactivation:** blocks sign-in immediately for new sessions, keeps the person's history, and cancels any open links.
+- **Reactivation**.
+
+**Guardrails:**
+- Only owners can create or manage owners.
+- Nobody can change their own role or deactivate themselves.
+- Every organisation keeps at least one active owner.
+- Every action is written to the audit trail.
+
+**Not built yet:** sending these links by email (planned via Amazon SES), SSO with Microsoft Entra ID, and MFA.
 
 ## Part B: every release
 1. Merge to `main`. Tests, then the image builds, run automatically.

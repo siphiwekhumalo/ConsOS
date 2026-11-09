@@ -89,7 +89,8 @@ docker compose up -d                              # Postgres, Redis, S3 mock onl
 pnpm build                                        # builds shared packages
 pnpm db:migrate
 pnpm db:dev-roles                                 # dev logins for the 3 service roles (local DB only)
-pnpm db:seed
+pnpm db:seed                                      # demo tenants; or create a real one:
+# TENANT_SLUG=acme TENANT_NAME="Acme (Pty) Ltd" OWNER_NAME="..." OWNER_EMAIL=... PUBLIC_URL=http://localhost:5173 pnpm db:create-tenant
 ```
 
 Then one terminal per service:
@@ -138,6 +139,8 @@ docker run --rm -v "$PWD/apps/sync-service:/src" -w /src golang:1.24-alpine go t
 | core | `GET/POST /api/v1/estimates`, `GET /api/v1/estimates/:id` | client JCE intake pipeline, with live client-vs-internal summary (needs `mod_commercial`) |
 | core | `POST/PATCH/DELETE /api/v1/estimates/:id/lines[/:lineId]` | line items, client and internal sides (Intake and Technical Review only) |
 | core | `POST /api/v1/estimates/:id/import-ai` | `{jobId}`: copy an AI BOQ extraction in as the client's lines |
+| core | `GET /api/v1/users`, `POST /api/v1/users/invite`, `POST /api/v1/users/:id/link`, `PATCH /api/v1/users/:id` | Users & access (owner/admin): invite with one-time links, password-reset links, role changes, deactivation |
+| core | `GET /api/v1/auth/invite/:token`, `POST /api/v1/auth/invite/accept` | public: open an invite/reset link and set your own password |
 | core | `POST /api/v1/estimates/:id/transition` | `{to, note?, clientApprovalRef?, acknowledgeVariance?}`: role-tiered approvals; `baseline_locked` freezes and creates the project |
 | sync | `POST /sync/v1/push` | up to 500 offline changes: `applied` / `duplicate` / `conflict` / `rejected` per change |
 | sync | `GET /sync/v1/pull?since=<cursor>` | projects + diary changes since the cursor |

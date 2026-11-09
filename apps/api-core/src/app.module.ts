@@ -12,6 +12,7 @@ import { StorageService } from './files/storage.service';
 import { DiaryController } from './diary/diary.controller';
 import { FormulasController } from './formulas/formulas.controller';
 import { EstimatesController } from './commercial/estimates.controller';
+import { UsersController } from './users/users.controller';
 
 @Global()
 @Module({})
@@ -40,6 +41,7 @@ export class AppModule {
         DiaryController,
         FormulasController,
         EstimatesController,
+        UsersController,
       ],
       providers: [StorageService],
     };
