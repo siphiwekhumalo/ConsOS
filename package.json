@@ -13,6 +13,7 @@
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @constructos/db migrate",
     "db:seed": "pnpm --filter @constructos/db seed",
+    "db:dev-roles": "pnpm --filter @constructos/db dev-roles",
     "dev:api": "pnpm --filter @constructos/api dev",
     "dev:web": "pnpm --filter @constructos/web dev"
   }

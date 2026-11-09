@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "migrate": "tsx --env-file-if-exists=../../.env src/migrate.ts",
     "seed": "tsx --env-file-if-exists=../../.env src/seed.ts",
+    "dev-roles": "tsx --env-file-if-exists=../../.env src/dev-roles.ts",
     "test": "vitest run"
   },
   "dependencies": {

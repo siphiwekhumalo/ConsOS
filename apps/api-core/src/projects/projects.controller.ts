@@ -1,7 +1,7 @@
 import { Body, ConflictException, Controller, Get, Post } from '@nestjs/common';
 import { asc } from 'drizzle-orm';
 import { z } from 'zod';
-import { schema } from '@constructos/db';
+import { appendAudit, schema } from '@constructos/db';
 import { DatabaseService } from '../database/database.module';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { ZodBodyPipe } from '../common/zod-body.pipe';
@@ -40,16 +40,27 @@ export class ProjectsController {
     @Body(new ZodBodyPipe(CreateProjectBody)) body: CreateProjectBody,
   ) {
     try {
-      const [created] = await this.db.forTenant(principal.tenantId, (tx) =>
-        tx
+      return await this.db.forTenant(principal.tenantId, async (tx) => {
+        const [created] = await tx
           .insert(schema.projects)
           // tenantId always comes from the token, never from the request body.
           .values({ ...body, tenantId: principal.tenantId })
-          .returning(),
-      );
-      return created;
+          .returning();
+        // Same transaction: the project and its audit record commit together.
+        await appendAudit(tx, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          action: 'project.created',
+          entityType: 'project',
+          entityId: created!.id,
+          payload: body,
+        });
+        return created;
+      });
     } catch (err) {
-      if ((err as { code?: string }).code === '23505') {
+      // Drizzle wraps driver errors; the Postgres code is on `cause`.
+      const e = err as { code?: string; cause?: { code?: string } };
+      if (e.code === '23505' || e.cause?.code === '23505') {
         throw new ConflictException(`Project code ${body.code} already exists`);
       }
       throw err;

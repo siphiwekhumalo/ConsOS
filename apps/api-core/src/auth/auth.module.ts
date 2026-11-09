@@ -3,6 +3,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_CONFIG, type AppConfig } from '../config';
+import { REDIS, type MaybeRedis } from '../redis/redis.module';
+import { RedisThrottlerStorage } from '../redis/redis-throttler.storage';
 import { AccessGuard } from './access.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -19,8 +21,14 @@ import { JwtAuthGuard } from './jwt-auth.guard';
         verifyOptions: { algorithms: ['HS256'], issuer: 'constructos' },
       }),
     }),
-    // In-memory for now. TODO(phase-1): Redis-backed storage so limits hold across Fargate tasks.
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    ThrottlerModule.forRootAsync({
+      inject: [REDIS],
+      useFactory: (redis: MaybeRedis) => ({
+        throttlers: [{ ttl: 60_000, limit: 120 }],
+        // Shared across API tasks when Redis is configured; in-memory otherwise.
+        ...(redis ? { storage: new RedisThrottlerStorage(redis) } : {}),
+      }),
+    }),
   ],
   controllers: [AuthController],
   providers: [

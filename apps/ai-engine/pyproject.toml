@@ -1,0 +1,22 @@
+[project]
+name = "constructos-ai-engine"
+version = "0.1.0"
+description = "ConstructOS AI engine: tender BOQ extraction and site-diary risk review"
+requires-python = ">=3.12"
+dependencies = [
+  "anthropic>=2.6,<3",
+  "boto3>=1.38",
+  "fastapi>=0.115",
+  "psycopg[binary,pool]>=3.2",
+  "pydantic>=2.10",
+  "pydantic-settings>=2.7",
+  "pyjwt>=2.10",
+  "uvicorn[standard]>=0.34",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "httpx>=0.28"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

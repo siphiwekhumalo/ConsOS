@@ -34,7 +34,7 @@ const DEMO: DemoTenant[] = [
     slug: 'demo-mining',
     name: 'Demo Mining Contractors (Pty) Ltd',
     tier: 'enterprise',
-    modules: ['mod_field', 'mod_finance', 'mod_payroll', 'mod_procurement', 'mod_hse'],
+    modules: ['mod_field', 'mod_finance', 'mod_payroll', 'mod_procurement', 'mod_hse', 'mod_ai'],
     ownerEmail: 'owner@demo-mining.test',
     projects: [
       { code: 'DM-101', name: 'Shaft 4 Refurbishment', contractForm: 'FIDIC_YELLOW', contractValue: '312000000.00' },

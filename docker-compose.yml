@@ -1,7 +1,26 @@
-# Local development stack. Production uses Aurora PostgreSQL 16 + ElastiCache (see infra/terraform).
+# Local environment mirroring AWS:
+#   postgres  -> Aurora PostgreSQL 16      redis -> ElastiCache      s3 -> Amazon S3
+#   web (nginx) -> CloudFront + ALB path routing
+#   api-core / sync-service / ai-engine -> ECS Fargate services
+#
+# Infrastructure only (run the apps yourself with pnpm/uv):  docker compose up -d
+# Everything in containers:                                  docker compose --profile app up -d --build
+#
+# Values come from .env in this folder (see README). Ports can be overridden
+# when the defaults are already taken on your machine.
+
+x-app-env: &app-env
+  JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+  S3_BUCKET: constructos-tenant-files
+  S3_REGION: af-south-1
+  S3_ENDPOINT: http://s3:9090
+  S3_FORCE_PATH_STYLE: "true"
+  AWS_ACCESS_KEY_ID: local          # the S3 mock accepts any credentials
+  AWS_SECRET_ACCESS_KEY: local
+
 services:
+  # ---------------------------------------------------------------- infrastructure
   postgres:
-    # Postgres 16 with pgvector preinstalled (needed for the Phase 4 AI search)
     image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: constructos
@@ -22,6 +41,72 @@ services:
     image: redis:7-alpine
     ports:
       - "${REDIS_PORT:-6379}:6379"
+
+  # S3-compatible mock (accepts any credentials, does not verify signatures).
+  s3:
+    image: adobe/s3mock:4.6.0
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: constructos-tenant-files
+    ports:
+      - "${S3_PORT:-9090}:9090"
+
+  # ---------------------------------------------------------------- application (profile: app)
+  migrate:
+    profiles: ["app"]
+    build: { context: ., dockerfile: apps/api-core/Dockerfile }
+    command: ["node", "node_modules/@constructos/db/dist/migrate.js"]
+    environment:
+      DATABASE_URL_OWNER: postgres://constructos_owner:owner_local_dev@postgres:5432/constructos
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api-core:
+    profiles: ["app"]
+    build: { context: ., dockerfile: apps/api-core/Dockerfile }
+    environment:
+      <<: *app-env
+      DATABASE_URL_APP: postgres://constructos_app:app_local_dev@postgres:5432/constructos
+      REDIS_URL: redis://redis:6379
+      S3_PUBLIC_ENDPOINT: http://localhost:${S3_PORT:-9090}   # what the browser can reach
+      WEB_ORIGIN: http://localhost:${WEB_PORT:-8070}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_started }
+      s3: { condition: service_started }
+
+  sync-service:
+    profiles: ["app"]
+    build: { context: apps/sync-service }
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      SYNC_DATABASE_URL: postgres://constructos_sync:sync_local_dev@postgres:5432/constructos
+    ports:
+      - "${SYNC_PORT:-8081}:8081"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  ai-engine:
+    profiles: ["app"]
+    build: { context: apps/ai-engine }
+    environment:
+      <<: *app-env
+      AI_DATABASE_URL: postgresql://constructos_ai:ai_local_dev@postgres:5432/constructos
+      # "fake" = no API calls. Set AI_PROVIDER=anthropic and ANTHROPIC_API_KEY in .env for real Claude.
+      AI_PROVIDER: ${AI_PROVIDER:-fake}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "${AI_PORT:-8000}:8000"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  web:
+    profiles: ["app"]
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    ports:
+      - "${WEB_PORT:-8070}:80"
+    depends_on: [api-core, sync-service, ai-engine]
 
 volumes:
   pgdata: {}
