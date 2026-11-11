@@ -102,11 +102,52 @@ around that:
 | **deploy** | Image builds, releases, organisation provisioning | The IAM policy from the Terraform output `buildkite_deploy_policy_arn`. Attach it to the agents' role, or set `buildkite_agent_role_name` and re-apply. It can only push to these ECR repositories and run/roll tasks in this cluster. | Pipeline env `DEPLOY_QUEUE` (default `deploy`) |
 | **infra** | Terraform plan/apply | Permissions to manage the whole stack; keep it separate and tightly held | Pipeline env `INFRA_QUEUE` (default `infra`) |
 
-To set it up:
-1. In Buildkite, go to **Agents → (your cluster) → Queues** and create `deploy` and `infra`, or point
-   `DEPLOY_QUEUE`/`INFRA_QUEUE` at queues you already have. Then run agents for them; the
-   **Elastic CI Stack for AWS** in af-south-1 is the simplest option.
-2. Create three pipelines from this repository. Default branch is `main`.
+To set it up from nothing, run the AWS-enabled agents **inside your AWS account** using Buildkite's
+**Elastic CI Stack for AWS** (a CloudFormation template). The agents are EC2 instances that call
+out to Buildkite over HTTPS, so Buildkite never needs credentials for your account. AWS access comes
+from the instances' IAM role, so no access keys are stored anywhere.
+
+1. **Create the queue** in Buildkite. Go to **Agents → Default cluster → Queues → New queue**:
+   - Key: `deploy`
+   - Type: *Self-hosted*
+2. **Create an agent token** under **Agents → Default cluster → Agent tokens → New token**, and name
+   it `aws-elastic-stack`. Keep it out of chat and tickets. In the next step, paste it only into the
+   CloudFormation console, or store it in SSM:
+   ```bash
+   aws ssm put-parameter --region af-south-1 --name /buildkite/agent-token --type SecureString --value '<token>'
+   ```
+3. **Launch the stack** in AWS: **CloudFormation → Create stack → With new resources**.
+   - Template URL: `https://s3.amazonaws.com/buildkite-aws-stack/latest/aws-stack.yml`
+   - Stack name: `buildkite-deploy`. Region: **af-south-1**. If the template reports no AMI for
+     af-south-1, use eu-west-1 instead; agents there can still deploy to af-south-1.
+
+   | Parameter | Value |
+   |---|---|
+   | `BuildkiteAgentTokenParameterStorePath` | `/buildkite/agent-token` (or paste the token into `BuildkiteAgentToken`) |
+   | `BuildkiteQueue` | `deploy` |
+   | `InstanceTypes` | `t3.large` (Docker image builds need ~8 GB RAM) |
+   | `MinSize` / `MaxSize` | `0` / `2`: instances start when work arrives and stop when idle, so you pay only while building |
+   | `ManagedPolicyARNs` | the Terraform output `buildkite_deploy_policy_arn` (see the order below) |
+   | `RootVolumeSize` | `100` |
+
+   Leave everything else at its defaults. The stack creates its own VPC, auto-scaling group and IAM role.
+4. **Check the agents connect:** when a job is queued, an instance starts and appears under
+   **Agents → Default cluster → deploy**.
+5. **Switch releases on:** in the `constructos` pipeline settings, set `RELEASES_ENABLED=true`.
+
+**Order matters:** the deploy policy (`buildkite_deploy_policy_arn`) comes from the first
+`terraform apply` (step 4 of this runbook), so apply Terraform before launching the stack. Then
+either:
+- launch the stack with `ManagedPolicyARNs` set to that ARN, or
+- launch it without the policy, put the stack's instance role name in `buildkite_agent_role_name`,
+  and re-apply.
+
+**Terraform from Buildkite later (optional):** repeat steps 1–3 with queue `infra` and stack name
+`buildkite-infra`. Give it a role that can manage the whole stack, keep it at `MaxSize` 1, and
+limit who can run the `constructos-infra` pipeline. Until then, run Terraform from an
+administrator's machine, as in step 4.
+
+Then create the pipelines from this repository. Default branch is `main`.
 
 | Pipeline | Steps | Environment | Who can run it |
 |---|---|---|---|
@@ -114,8 +155,11 @@ To set it up:
 | `constructos-infra` | `buildkite-agent pipeline upload .buildkite/infra.yml` | `TF_STATE_BUCKET`, `TF_LOCK_TABLE` | — |
 | `constructos-provision` | `buildkite-agent pipeline upload .buildkite/provision.yml` | — | Platform operations team only |
 
-Builds of `main` add the release steps (`.buildkite/release.yml`) automatically. Branch builds only
-run tests, so they work before the `deploy` queue exists.
+Releases are **off until you switch them on**. Until then, `main` builds run the tests and add a note
+explaining what's missing; they don't fail. Once the `deploy` queue exists and its agents have the
+AWS role, set **`RELEASES_ENABLED=true`** in the `constructos` pipeline's environment (Pipeline
+settings → Environment variables). From then on, every `main` build adds the release steps
+(`.buildkite/release.yml`). Branch builds only ever run tests.
 
 Optionally, restrict who can unblock the **Release** step with Buildkite teams.
 

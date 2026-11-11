@@ -53,8 +53,9 @@ steps:
 
   - wait: ~
 
-  # Release steps are only added to builds of main, so branch builds never
-  # depend on the deploy queue existing.
+  # Release steps are only added to builds of main, and only once the pipeline
+  # env has RELEASES_ENABLED=true (i.e. the deploy queue exists). Until then main
+  # builds stay green and annotate what is missing.
   - label: ":pipeline: Add release steps"
     branches: main
-    command: buildkite-agent pipeline upload .buildkite/release.yml
+    command: bash .buildkite/scripts/upload-release.sh
