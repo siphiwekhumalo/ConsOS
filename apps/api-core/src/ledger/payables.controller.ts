@@ -235,7 +235,7 @@ export class PayablesController {
       return await this.db.forTenant(p.tenantId, async (tx) => {
         const inv = await this.invoice(tx, id);
         if (inv.status !== 'draft') throw new BadRequestException(`Invoice is already ${inv.status}`);
-        if (!new Decimal(inv.total).isPositive()) throw new BadRequestException('The invoice total must be more than zero');
+        if (!new Decimal(inv.total).greaterThan(0)) throw new BadRequestException('The invoice total must be more than zero');
         const [supplier] = await tx.select().from(S).where(eq(S.id, inv.supplierId));
         const lines = await tx.select().from(SIL).where(eq(SIL.invoiceId, id)).orderBy(asc(SIL.lineNo));
         const keys = await this.ledger.systemAccounts(tx, ['ap_control', 'vat_input', ...Object.values(COST_CATEGORY_KEY)]);

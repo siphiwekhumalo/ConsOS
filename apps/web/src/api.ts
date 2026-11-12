@@ -790,6 +790,123 @@ export interface HseKpis {
   overdueNcrs: number;
 }
 
+// ------------------------------------------------------------------ HR & payroll
+
+export interface EmployeeView {
+  id: string;
+  employeeNo: string;
+  firstName: string;
+  lastName: string;
+  occupation: string;
+  employmentType: 'permanent' | 'fixed_term' | 'casual';
+  payBasis: 'monthly' | 'hourly';
+  /** Only for payroll roles. */
+  rate?: string;
+  medicalAidMembers?: number;
+  startDate: string;
+  endDate: string | null;
+  status: 'active' | 'terminated';
+  terminationReason: string | null;
+  defaultProjectId: string | null;
+  phone: string | null;
+  expiredCertifications?: string[];
+  expiringCertifications?: string[];
+}
+
+export interface EmployeeDetail extends EmployeeView {
+  private: { idNumber: string | null; passportNo: string | null; taxNumber: string | null; dateOfBirth: string } | null;
+  certifications: { id: string; kind: string; certificateNo: string | null; issuedOn: string; expiresOn: string | null; expired: boolean }[];
+  leave: LeaveRequest[];
+  leaveBalances: { kind: 'annual' | 'sick' | 'family_responsibility'; cycleStart: string; entitlement: string; taken: string; balance: string }[];
+}
+
+export interface EmployeeInput {
+  employeeNo?: string;
+  firstName?: string;
+  lastName?: string;
+  occupation?: string;
+  employmentType?: EmployeeView['employmentType'];
+  payBasis?: EmployeeView['payBasis'];
+  rate?: string;
+  medicalAidMembers?: number;
+  startDate?: string;
+  phone?: string | null;
+  private?: { idNumber?: string | null; passportNo?: string | null; taxNumber?: string | null; dateOfBirth?: string };
+}
+
+export interface LeaveRequest {
+  id: string;
+  employeeId: string;
+  employeeName?: string;
+  kind: 'annual' | 'sick' | 'family_responsibility' | 'unpaid';
+  startsOn: string;
+  endsOn: string;
+  days: string;
+  status: 'requested' | 'approved' | 'rejected' | 'cancelled';
+  note: string | null;
+  createdBy: string;
+}
+
+export interface TimeEntry {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeNo: string;
+  projectId: string;
+  projectCode: string;
+  costCode: string | null;
+  workDate: string;
+  normalHours: string;
+  overtimeHours: string;
+  sundayHours: string;
+  status: 'submitted' | 'approved' | 'rejected';
+  note: string | null;
+  capturedBy: string;
+}
+
+export interface Payslip {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeNo: string;
+  occupation: string;
+  earnings: { code: string; label: string; quantity: string; rate: string; amount: string }[];
+  gross: string;
+  paye: string;
+  uifEmployee: string;
+  otherDeductions: string;
+  net: string;
+  uifEmployer: string;
+  sdl: string;
+  employerCost: string;
+  hoursWorked: string;
+}
+
+export interface PayRun {
+  id: string;
+  period: string;
+  payDate: string;
+  taxYear: string;
+  status: 'draft' | 'finalised';
+  grossTotal: string;
+  payeTotal: string;
+  uifTotal: string;
+  sdlTotal: string;
+  netTotal: string;
+  journalId: string | null;
+  finalisedAt: string | null;
+  pendingTimesheets?: number;
+  payslips?: Payslip[];
+}
+
+export interface PayrollSettings {
+  sdlLiable: boolean;
+  monthlyHours: string;
+  payeReference: string | null;
+  uifReference: string | null;
+  taxTables: { taxYear: string; startsOn: string; endsOn: string; source: string }[];
+}
+
 export interface FormulaResult {
   ok: boolean;
   variables?: string[];
@@ -1121,6 +1238,36 @@ export const api = {
     actions: (status?: 'open' | 'done') => request<CorrectiveAction[]>(`/api/v1/hse/actions${qs({ status })}`),
     addAction: (body: { sourceType: CorrectiveAction['sourceType']; sourceId: string; action: string; ownerName: string; dueOn: string }) => post<CorrectiveAction>('/api/v1/hse/actions', body),
     completeAction: (id: string, completedOn: string, note?: string) => post<CorrectiveAction>(`/api/v1/hse/actions/${id}/complete`, { completedOn, note }),
+  },
+
+  payroll: {
+    employees: () => request<EmployeeView[]>('/api/v1/payroll/employees'),
+    employee: (id: string) => request<EmployeeDetail>(`/api/v1/payroll/employees/${id}`),
+    addEmployee: (body: EmployeeInput) => post<EmployeeDetail>('/api/v1/payroll/employees', body),
+    updateEmployee: (id: string, body: EmployeeInput) => patch<EmployeeDetail>(`/api/v1/payroll/employees/${id}`, body),
+    terminate: (id: string, endDate: string, reason: string) => post<EmployeeDetail>(`/api/v1/payroll/employees/${id}/terminate`, { endDate, reason }),
+    addCertification: (id: string, body: { kind: string; certificateNo?: string | null; issuedOn: string; expiresOn?: string | null }) =>
+      post<EmployeeDetail>(`/api/v1/payroll/employees/${id}/certifications`, body),
+    removeCertification: (certId: string) => request<EmployeeDetail>(`/api/v1/payroll/certifications/${certId}`, { method: 'DELETE' }),
+    leave: () => request<LeaveRequest[]>('/api/v1/payroll/leave'),
+    requestLeave: (body: { employeeId: string; kind: LeaveRequest['kind']; startsOn: string; endsOn: string; note?: string }) => post<LeaveRequest>('/api/v1/payroll/leave', body),
+    decideLeave: (id: string, decision: 'approved' | 'rejected', note?: string) => post<LeaveRequest>(`/api/v1/payroll/leave/${id}/decide`, { decision, note }),
+    cancelLeave: (id: string) => post<LeaveRequest>(`/api/v1/payroll/leave/${id}/cancel`, {}),
+    costCodes: (projectId: string) => request<{ id: string; code: string; description: string }[]>(`/api/v1/payroll/projects/${projectId}/cost-codes`),
+    timesheets: (q: { from?: string; to?: string; projectId?: string; status?: string } = {}) => request<TimeEntry[]>(`/api/v1/payroll/timesheets${qs(q)}`),
+    captureTime: (entries: { employeeId: string; projectId: string; costCodeId: string; workDate: string; normalHours?: string; overtimeHours?: string; sundayHours?: string; note?: string }[]) =>
+      post<{ captured: number }>('/api/v1/payroll/timesheets', { entries }),
+    approveTime: (ids: string[]) => post<{ approved: number; skipped: number }>('/api/v1/payroll/timesheets/approve', { ids }),
+    rejectTime: (ids: string[]) => post<{ rejected: number; skipped: number }>('/api/v1/payroll/timesheets/reject', { ids }),
+    deleteTime: (id: string) => request<{ deleted: true }>(`/api/v1/payroll/timesheets/${id}`, { method: 'DELETE' }),
+    settings: () => request<PayrollSettings>('/api/v1/payroll/settings'),
+    updateSettings: (body: Partial<Omit<PayrollSettings, 'taxTables'>>) => patch<PayrollSettings>('/api/v1/payroll/settings', body),
+    runs: () => request<PayRun[]>('/api/v1/payroll/pay-runs'),
+    run: (id: string) => request<PayRun>(`/api/v1/payroll/pay-runs/${id}`),
+    createRun: (period: string, payDate: string) => post<PayRun>('/api/v1/payroll/pay-runs', { period, payDate }),
+    recalculate: (id: string) => post<PayRun>(`/api/v1/payroll/pay-runs/${id}/recalculate`, {}),
+    finalise: (id: string) => post<PayRun>(`/api/v1/payroll/pay-runs/${id}/finalise`, {}),
+    emp201: (id: string) => request<{ period: string; payeReference: string | null; paye: string; uif: string; sdl: string; eti: string; total: string; dueOn: string; note: string }>(`/api/v1/payroll/pay-runs/${id}/emp201`),
   },
 
   aiJobs: () => request<AiJob[]>('/ai/v1/jobs'),

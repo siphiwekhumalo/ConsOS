@@ -16,7 +16,7 @@ const FieldOps = page(() => import('./pages/FieldOps'), 'FieldOps');
 const Finance = page(() => import('./pages/Finance'), 'Finance');
 const AiAgent = page(() => import('./pages/AiAgent'), 'AiAgent');
 const Audit = page(() => import('./pages/Audit'), 'Audit');
-const Payroll = page(() => import('./pages/modules/Payroll'), 'Payroll');
+const Payroll = page(() => import('./pages/people/Payroll'), 'Payroll');
 const Crm = page(() => import('./pages/modules/Crm'), 'Crm');
 const Estimating = page(() => import('./pages/modules/Estimating'), 'Estimating');
 const Procurement = page(() => import('./pages/procurement/Procurement'), 'Procurement');
@@ -110,7 +110,7 @@ export function App() {
         <Route path="/estimating" element={guard('/estimating', <Estimating />)} />
         <Route path="/finance" element={guard('/finance', <Finance me={me} />)} />
         <Route path="/procurement" element={guard('/procurement', <Procurement me={me} />)} />
-        <Route path="/payroll" element={guard('/payroll', <Payroll />)} />
+        <Route path="/payroll" element={guard('/payroll', <Payroll me={me} />)} />
         {/* Not /ai: that prefix belongs to the AI service behind the gateway. */}
         <Route path="/agent" element={guard('/agent', <AiAgent />)} />
         <Route path="/portal" element={guard('/portal', <Portal />)} />

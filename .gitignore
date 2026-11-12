@@ -18,3 +18,6 @@ infra/terraform/plan.txt
 
 .DS_Store
 Thumbs.db
+
+# Desktop installers (electron-builder output)
+apps/desktop/release/

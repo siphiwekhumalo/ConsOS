@@ -48,7 +48,8 @@ const Receive = z.object({
   receivedOn: isoDate,
   deliveryNote: z.string().trim().max(60).optional(),
   notes: z.string().trim().max(2000).optional(),
-  lines: z.array(z.object({ poLineId: z.string().uuid(), quantity: qty.refine((v) => Number(v) > 0, 'quantity must be more than zero') })).min(1),
+  // Zero lines (already fully received) are skipped; at least one line must be more than zero.
+  lines: z.array(z.object({ poLineId: z.string().uuid(), quantity: qty })).min(1),
 });
 const InvoiceFromOrder = z.object({
   invoiceNo: z.string().trim().min(1).max(60),
@@ -167,7 +168,7 @@ export class OrdersController {
       return rows.map((r) => {
         const lines = [...progress.values()].filter((l) => l.poId === r.po.id);
         const fullyReceived = lines.length > 0 && lines.every((l) => new Decimal(l.outstanding).isZero());
-        const anyReceived = lines.some((l) => new Decimal(l.received).isPositive());
+        const anyReceived = lines.some((l) => new Decimal(l.received).greaterThan(0));
         return { ...r.po, number: poLabel(r.po.poNo), supplierName: r.supplierName, delivery: fullyReceived ? 'received' : anyReceived ? 'part_received' : 'none' };
       });
     });
@@ -274,7 +275,7 @@ export class OrdersController {
       return await this.db.forTenant(p.tenantId, async (tx) => {
         const po = await this.order(tx, id);
         if (po.status !== 'approved') throw new BadRequestException('Goods can only be received against an approved order');
-        const lines = body.lines.filter((l) => new Decimal(l.quantity).isPositive());
+        const lines = body.lines.filter((l) => new Decimal(l.quantity).greaterThan(0));
         if (!lines.length) throw new BadRequestException('Enter a quantity received on at least one line');
         const grnNo = await this.ledger.nextNo(tx, 'goods_receipt');
         const [grn] = await tx
@@ -305,7 +306,7 @@ export class OrdersController {
         const [supplier] = await tx.select().from(S).where(eq(S.id, po.supplierId));
         const orderLines = await tx.select().from(POL).where(eq(POL.poId, id));
         const lines = body.lines
-          .filter((l) => new Decimal(l.quantity).isPositive())
+          .filter((l) => new Decimal(l.quantity).greaterThan(0))
           .map((l) => {
             const ol = orderLines.find((x) => x.id === l.poLineId);
             if (!ol) throw new BadRequestException('A line does not belong to this order');

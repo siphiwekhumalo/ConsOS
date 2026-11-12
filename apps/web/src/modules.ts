@@ -74,7 +74,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'People',
     items: [
-      { path: '/payroll', label: 'HRIS & Payroll', icon: Users, module: 'mod_payroll', moduleNo: 1, roles: ['owner', 'admin', 'finance'], live: false, description: 'SARS payroll and bargaining councils' },
+      { path: '/payroll', label: 'HR & Payroll', icon: Users, module: 'mod_payroll', moduleNo: 1, roles: ['owner', 'admin', 'finance', 'project_manager', 'site_foreman'], live: true, description: 'Employees, timesheets, leave and SARS payroll' },
     ],
   },
   {

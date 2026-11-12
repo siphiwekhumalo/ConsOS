@@ -88,6 +88,11 @@ function check(label, cond, detail = '') {
   const [l1, l2] = po.lines;
   po = await call('foreman', 'POST', `/procurement/purchase-orders/${po.id}/receive`, { receivedOn: '2026-11-04', deliveryNote: 'DN-881', lines: [{ poLineId: l1.id, quantity: '60' }, { poLineId: l2.id, quantity: '10' }] });
   check('GRN recorded', po.receipts.length === 1 && po.lines[0].received === '60.000' && po.lines[0].outstanding === '40.000');
+  // Regression: a zero on a fully received line must be ignored, not rejected by the database.
+  po = await call('foreman', 'POST', `/procurement/purchase-orders/${po.id}/receive`, { receivedOn: '2026-11-05', lines: [{ poLineId: l1.id, quantity: '5' }, { poLineId: l2.id, quantity: '0' }] });
+  check('zero-quantity lines are skipped when receiving', po.lines[0].received === '65.000' && po.receipts.length === 2, JSON.stringify(po.lines?.map((l) => l.received)));
+  const list = await call('owner', 'GET', '/procurement/purchase-orders');
+  check('delivery status only counts real receipts', list.find((o) => o.id === po.id)?.delivery === 'part_received');
   await call('foreman', 'POST', `/procurement/purchase-orders/${po.id}/receive`, { receivedOn: '2026-11-05', lines: [{ poLineId: l1.id, quantity: '50' }] }, 400);
 
   // ---- invoice against the order: three-way match
@@ -99,7 +104,7 @@ function check(label, cond, detail = '') {
   check('cost moves from committed to actual', row.cost === '37000.00' && row.committed === '18000.00', JSON.stringify([row.cost, row.committed]));
   r = await call('owner', 'POST', `/procurement/purchase-orders/${po.id}/invoice`, { invoiceNo: 'IS-1002', invoiceDate: '2026-11-07', lines: [{ poLineId: l1.id, quantity: '10' }] });
   const blocked = await call('owner', 'POST', `/finance/supplier-invoices/${r.invoiceId}/approve`, {}, 400);
-  check('over-billing blocked by the three-way match', /invoiced 70.000 but only 60.000 received/.test(blocked.message), blocked.message);
+  check('over-billing blocked by the three-way match', /invoiced 70.000 but only 65.000 received/.test(blocked.message), blocked.message);
   inv = await call('owner', 'POST', `/finance/supplier-invoices/${r.invoiceId}/approve`, { matchOverrideReason: 'Delivery DN-902 not yet captured on site' });
   check('override approves with a reason', inv.status === 'approved');
   await call('owner', 'PATCH', `/finance/supplier-invoices/${r.invoiceId}`, { lines: [] }, 400);
