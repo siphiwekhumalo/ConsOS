@@ -366,7 +366,81 @@ export const suppliers = pgTable('suppliers', {
   isSubcontractor: boolean('is_subcontractor').notNull().default(false),
   ...timestamps,
 });
-export const customers = pgTable('customers', { ...party, billingAddress: text('billing_address'), ...timestamps });
+export const customers = pgTable('customers', {
+  ...party,
+  billingAddress: text('billing_address'),
+  sector: text('sector'),
+  province: text('province'),
+  website: text('website'),
+  accountManagerId: uuid('account_manager_id'),
+  notes: text('notes').notNull().default(''),
+  ...timestamps,
+});
+
+// ---------------------------------------------------------------- CRM & tenders (0012)
+
+export const contacts = pgTable('contacts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  customerId: uuid('customer_id').notNull(),
+  fullName: text('full_name').notNull(),
+  jobTitle: text('job_title'),
+  email: text('email'),
+  phone: text('phone'),
+  isPrimary: boolean('is_primary').notNull().default(false),
+  marketingOptOut: boolean('marketing_opt_out').notNull().default(false),
+  ...timestamps,
+});
+
+export const opportunityStage = pgEnum('opportunity_stage', ['lead', 'qualifying', 'tendering', 'submitted', 'won', 'lost', 'no_bid']);
+
+export const opportunities = pgTable('opportunities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  oppNo: integer('opp_no').notNull(),
+  customerId: uuid('customer_id').notNull(),
+  contactId: uuid('contact_id'),
+  title: text('title').notNull(),
+  description: text('description').notNull().default(''),
+  stage: opportunityStage('stage').notNull().default('lead'),
+  source: text('source').notNull().default('client_rfq'),
+  estimatedValue: numeric('estimated_value', { precision: 18, scale: 2 }),
+  probability: integer('probability').notNull().default(10),
+  tenderRef: text('tender_ref'),
+  briefingOn: timestamp('briefing_on', { withTimezone: true }),
+  closingAt: timestamp('closing_at', { withTimezone: true }),
+  expectedAwardOn: date('expected_award_on'),
+  cidbGradeRequired: text('cidb_grade_required'),
+  bbbeeLevelRequired: integer('bbbee_level_required'),
+  ownerId: uuid('owner_id').notNull(),
+  estimateId: uuid('estimate_id'),
+  projectId: uuid('project_id'),
+  awardedValue: numeric('awarded_value', { precision: 18, scale: 2 }),
+  closeReason: text('close_reason'),
+  competitor: text('competitor'),
+  closedAt: timestamp('closed_at', { withTimezone: true }),
+  createdBy: uuid('created_by').notNull(),
+  ...timestamps,
+});
+
+export const crmActivities = pgTable('crm_activities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  customerId: uuid('customer_id').notNull(),
+  opportunityId: uuid('opportunity_id'),
+  contactId: uuid('contact_id'),
+  kind: text('kind').notNull(),
+  occurredOn: date('occurred_on').notNull(),
+  summary: text('summary').notNull(),
+  nextStep: text('next_step'),
+  followUpOn: date('follow_up_on'),
+  followUpDone: boolean('follow_up_done').notNull().default(false),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Opportunity = typeof opportunities.$inferSelect;
+export type OpportunityStage = (typeof opportunityStage.enumValues)[number];
 
 export const supplierInvoiceStatus = pgEnum('supplier_invoice_status', ['draft', 'approved', 'part_paid', 'paid', 'void']);
 

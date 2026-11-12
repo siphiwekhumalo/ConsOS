@@ -40,4 +40,6 @@ export type {
   TaxBracket,
   Employee,
   PayslipEarning,
+  Opportunity,
+  OpportunityStage,
 } from './schema';

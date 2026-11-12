@@ -907,6 +907,92 @@ export interface PayrollSettings {
   taxTables: { taxYear: string; startsOn: string; endsOn: string; source: string }[];
 }
 
+// ------------------------------------------------------------------ CRM & tenders
+
+export type OppStage = 'lead' | 'qualifying' | 'tendering' | 'submitted' | 'won' | 'lost' | 'no_bid';
+
+export interface Contact {
+  id: string;
+  fullName: string;
+  jobTitle: string | null;
+  email: string | null;
+  phone: string | null;
+  isPrimary: boolean;
+  marketingOptOut: boolean;
+}
+
+export interface CrmActivity {
+  id: string;
+  customerId: string;
+  customerName?: string;
+  opportunityId: string | null;
+  kind: 'call' | 'meeting' | 'email' | 'site_visit' | 'note';
+  occurredOn: string;
+  summary: string;
+  nextStep: string | null;
+  followUpOn: string | null;
+  followUpDone: boolean;
+  author?: string;
+  overdue?: boolean;
+}
+
+export interface Opportunity {
+  id: string;
+  number: string;
+  customerId: string;
+  customerName: string;
+  contactId: string | null;
+  title: string;
+  description: string;
+  stage: OppStage;
+  source: string;
+  estimatedValue: string | null;
+  probability: number;
+  tenderRef: string | null;
+  briefingOn: string | null;
+  closingAt: string | null;
+  expectedAwardOn: string | null;
+  cidbGradeRequired: string | null;
+  bbbeeLevelRequired: number | null;
+  ownerId: string;
+  ownerName?: string;
+  estimateId: string | null;
+  projectId: string | null;
+  awardedValue: string | null;
+  closeReason: string | null;
+  competitor: string | null;
+  closedAt: string | null;
+  updatedAt: string;
+  estimate?: { id: string; ref: string; stage: string; projectId: string | null } | null;
+  project?: { id: string; code: string; name: string } | null;
+  activities?: CrmActivity[];
+}
+
+export interface CrmAccount extends Party {
+  sector: string | null;
+  province: string | null;
+  website: string | null;
+  accountManagerId: string | null;
+  notes: string;
+  contacts: number | Contact[];
+  openOpportunities?: number;
+  openValue?: string;
+  lastActivity?: string | null;
+  accountManagerName?: string | null;
+  opportunities?: Opportunity[];
+  activities?: CrmActivity[];
+  winRate?: { won: number; lost: number; byCount: string | null };
+}
+
+export interface CrmDashboard {
+  pipeline: { stages: { stage: OppStage; count: number; value: string; weighted: string }[]; openCount: number; openValue: string; weightedValue: string };
+  winRate: { won: number; lost: number; noBid: number; wonValue: string; byCount: string | null; byValue: string | null };
+  deadlines: { kind: 'briefing' | 'closing'; at: string; hoursLeft: number; missed: boolean; opportunity: { id: string; number: string; title: string; customerName: string; stage: OppStage } }[];
+  followUps: (CrmActivity & { customerName: string })[];
+}
+
+export type OppInput = Partial<Pick<Opportunity, 'customerId' | 'contactId' | 'title' | 'description' | 'source' | 'estimatedValue' | 'probability' | 'tenderRef' | 'briefingOn' | 'closingAt' | 'expectedAwardOn' | 'cidbGradeRequired' | 'bbbeeLevelRequired'>> & { stage?: 'lead' | 'qualifying' };
+
 export interface FormulaResult {
   ok: boolean;
   variables?: string[];
@@ -1288,6 +1374,29 @@ export const api = {
     recalculate: (id: string) => post<PayRun>(`/api/v1/payroll/pay-runs/${id}/recalculate`, {}),
     finalise: (id: string) => post<PayRun>(`/api/v1/payroll/pay-runs/${id}/finalise`, {}),
     emp201: (id: string) => request<{ period: string; payeReference: string | null; paye: string; uif: string; sdl: string; eti: string; total: string; dueOn: string; note: string }>(`/api/v1/payroll/pay-runs/${id}/emp201`),
+  },
+
+  crm: {
+    dashboard: () => request<CrmDashboard>('/api/v1/crm/dashboard'),
+    accounts: () => request<CrmAccount[]>('/api/v1/crm/accounts'),
+    account: (id: string) => request<CrmAccount>(`/api/v1/crm/accounts/${id}`),
+    addAccount: (body: Partial<CrmAccount> & { name: string }) => post<CrmAccount>('/api/v1/crm/accounts', body),
+    updateAccount: (id: string, body: Partial<CrmAccount>) => patch<CrmAccount>(`/api/v1/crm/accounts/${id}`, body),
+    addContact: (id: string, body: Partial<Contact> & { fullName: string }) => post<CrmAccount>(`/api/v1/crm/accounts/${id}/contacts`, body),
+    updateContact: (contactId: string, body: Partial<Contact>) => patch<CrmAccount>(`/api/v1/crm/contacts/${contactId}`, body),
+    deleteContact: (contactId: string) => request<CrmAccount>(`/api/v1/crm/contacts/${contactId}`, { method: 'DELETE' }),
+    opportunities: (stage?: OppStage) => request<Opportunity[]>(`/api/v1/crm/opportunities${qs({ stage })}`),
+    opportunity: (id: string) => request<Opportunity>(`/api/v1/crm/opportunities/${id}`),
+    addOpportunity: (body: OppInput) => post<Opportunity>('/api/v1/crm/opportunities', body),
+    updateOpportunity: (id: string, body: OppInput) => patch<Opportunity>(`/api/v1/crm/opportunities/${id}`, body),
+    transition: (id: string, body: { to: OppStage; probability?: number; awardedValue?: string; closeReason?: string; competitor?: string; projectId?: string }) =>
+      post<Opportunity>(`/api/v1/crm/opportunities/${id}/transition`, body),
+    startEstimate: (id: string) => post<Opportunity>(`/api/v1/crm/opportunities/${id}/estimate`, {}),
+    linkProject: (id: string, projectId: string) => post<Opportunity>(`/api/v1/crm/opportunities/${id}/project`, { projectId }),
+    activities: (customerId?: string) => request<CrmActivity[]>(`/api/v1/crm/activities${qs({ customerId })}`),
+    addActivity: (body: { customerId: string; opportunityId?: string | null; kind: CrmActivity['kind']; occurredOn: string; summary: string; nextStep?: string | null; followUpOn?: string | null }) =>
+      post<CrmActivity>('/api/v1/crm/activities', body),
+    followUpDone: (id: string) => post<CrmActivity>(`/api/v1/crm/activities/${id}/done`, {}),
   },
 
   aiJobs: () => request<AiJob[]>('/ai/v1/jobs'),
