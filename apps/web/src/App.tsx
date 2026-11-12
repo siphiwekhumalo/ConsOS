@@ -19,9 +19,9 @@ const Audit = page(() => import('./pages/Audit'), 'Audit');
 const Payroll = page(() => import('./pages/modules/Payroll'), 'Payroll');
 const Crm = page(() => import('./pages/modules/Crm'), 'Crm');
 const Estimating = page(() => import('./pages/modules/Estimating'), 'Estimating');
-const Procurement = page(() => import('./pages/modules/Procurement'), 'Procurement');
-const Fleet = page(() => import('./pages/modules/Fleet'), 'Fleet');
-const Hse = page(() => import('./pages/modules/Hse'), 'Hse');
+const Procurement = page(() => import('./pages/procurement/Procurement'), 'Procurement');
+const Fleet = page(() => import('./pages/operations/Fleet'), 'Fleet');
+const Hse = page(() => import('./pages/operations/Hse'), 'Hse');
 const Portal = page(() => import('./pages/modules/Portal'), 'Portal');
 const Pipeline = page(() => import('./pages/commercial/Pipeline'), 'Pipeline');
 const Users = page(() => import('./pages/settings/Users'), 'Users');
@@ -104,12 +104,12 @@ export function App() {
         <Route path="/commercial" element={guard('/commercial', <Pipeline me={me} />)} />
         <Route path="/commercial/:estimateId" element={guard('/commercial', <EstimateDetail me={me} />)} />
         <Route path="/field" element={guard('/field', <FieldOps />)} />
-        <Route path="/hse" element={guard('/hse', <Hse />)} />
-        <Route path="/fleet" element={guard('/fleet', <Fleet />)} />
+        <Route path="/hse" element={guard('/hse', <Hse me={me} />)} />
+        <Route path="/fleet" element={guard('/fleet', <Fleet me={me} />)} />
         <Route path="/crm" element={guard('/crm', <Crm />)} />
         <Route path="/estimating" element={guard('/estimating', <Estimating />)} />
-        <Route path="/finance" element={guard('/finance', <Finance />)} />
-        <Route path="/procurement" element={guard('/procurement', <Procurement />)} />
+        <Route path="/finance" element={guard('/finance', <Finance me={me} />)} />
+        <Route path="/procurement" element={guard('/procurement', <Procurement me={me} />)} />
         <Route path="/payroll" element={guard('/payroll', <Payroll />)} />
         {/* Not /ai: that prefix belongs to the AI service behind the gateway. */}
         <Route path="/agent" element={guard('/agent', <AiAgent />)} />

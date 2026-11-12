@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   NotebookPen,
   Plus,
+  Scale,
   ShieldAlert,
   Sparkles,
   Sun,
@@ -48,8 +49,9 @@ import {
 } from '../../components/ui';
 import { AiJobCard } from '../../components/AiResults';
 import { projectStatusTone } from './shared';
+import { Controls } from './Controls';
 
-type Tab = 'overview' | 'diary' | 'documents' | 'ai';
+type Tab = 'overview' | 'controls' | 'diary' | 'documents' | 'ai';
 const COMMERCIAL = ['owner', 'admin', 'project_manager', 'finance'];
 const DIARY_WRITERS = ['owner', 'admin', 'project_manager', 'site_foreman'];
 
@@ -66,6 +68,7 @@ export function ProjectDetail({ me }: { me: Me }) {
   const { projectId = '' } = useParams();
   const hasField = me.modules.includes('mod_field');
   const hasAi = me.modules.includes('mod_ai') && COMMERCIAL.includes(me.user.role);
+  const hasControls = me.modules.includes('mod_finance') && COMMERCIAL.includes(me.user.role);
 
   const project = useAsync(async () => (await api.projects()).find((p) => p.id === projectId) ?? null, [projectId]);
   const diary = useAsync(() => (hasField ? api.diary(projectId) : Promise.resolve([] as DiaryEntry[])), [projectId]);
@@ -134,6 +137,7 @@ export function ProjectDetail({ me }: { me: Me }) {
         onChange={setTab}
         tabs={[
           { id: 'overview', label: 'Overview', icon: LayoutGrid },
+          ...(hasControls ? [{ id: 'controls' as Tab, label: 'Controls & CVR', icon: Scale }] : []),
           ...(hasField ? [{ id: 'diary' as Tab, label: 'Site diary', icon: NotebookPen, count: diary.data?.length }] : []),
           { id: 'documents', label: 'Documents', icon: FileText, count: files.data?.length },
           ...(hasAi ? [{ id: 'ai' as Tab, label: 'AI insights', icon: Sparkles }] : []),
@@ -141,6 +145,7 @@ export function ProjectDetail({ me }: { me: Me }) {
       />
 
       {tab === 'overview' && p && <Overview project={p} diary={diary.data ?? []} files={files.data ?? []} hasField={hasField} onTab={setTab} />}
+      {tab === 'controls' && hasControls && <Controls projectId={projectId} role={me.user.role} onProjectChanged={() => void project.reload()} />}
       {tab === 'diary' && hasField && <Diary projectId={projectId} entries={diary.data} reload={diary.reload} canWrite={DIARY_WRITERS.includes(me.user.role)} />}
       {tab === 'documents' && <Documents projectId={projectId} files={files.data} reload={files.reload} canUseAi={hasAi} />}
       {tab === 'ai' && hasAi && <ProjectAi projectId={projectId} />}

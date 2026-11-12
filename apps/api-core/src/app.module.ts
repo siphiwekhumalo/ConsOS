@@ -13,6 +13,19 @@ import { DiaryController } from './diary/diary.controller';
 import { FormulasController } from './formulas/formulas.controller';
 import { EstimatesController } from './commercial/estimates.controller';
 import { UsersController } from './users/users.controller';
+import { ControlsController } from './controls/controls.controller';
+import { LedgerService } from './ledger/ledger.service';
+import { LedgerController } from './ledger/ledger.controller';
+import { PayablesController } from './ledger/payables.controller';
+import { ReceivablesController } from './ledger/receivables.controller';
+import { PaymentsController } from './ledger/payments.controller';
+import { BankingController } from './ledger/banking.controller';
+import { PurchaseOrdersService } from './procurement/orders.service';
+import { OrdersController } from './procurement/orders.controller';
+import { RfqsController } from './procurement/rfqs.controller';
+import { SubcontractsController } from './procurement/subcontracts.controller';
+import { PlantController } from './operations/plant.controller';
+import { HseController } from './operations/hse.controller';
 
 @Global()
 @Module({})
@@ -42,8 +55,19 @@ export class AppModule {
         FormulasController,
         EstimatesController,
         UsersController,
+        ControlsController,
+        LedgerController,
+        PayablesController,
+        ReceivablesController,
+        PaymentsController,
+        BankingController,
+        OrdersController,
+        RfqsController,
+        SubcontractsController,
+        PlantController,
+        HseController,
       ],
-      providers: [StorageService],
+      providers: [StorageService, LedgerService, PurchaseOrdersService],
     };
   }
 }

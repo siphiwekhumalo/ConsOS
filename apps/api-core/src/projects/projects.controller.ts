@@ -1,5 +1,16 @@
-import { Body, ConflictException, Controller, Get, Post } from '@nestjs/common';
-import { asc } from 'drizzle-orm';
+import {
+  BadRequestException,
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { appendAudit, schema } from '@constructos/db';
 import { DatabaseService } from '../database/database.module';
@@ -20,6 +31,22 @@ const CreateProjectBody = z.object({
     .optional(),
 });
 type CreateProjectBody = z.infer<typeof CreateProjectBody>;
+
+const pct = z.string().regex(/^\d{1,2}(\.\d{1,2})?$/, 'percentage as a decimal string, e.g. "5.00"');
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date as YYYY-MM-DD');
+const UpdateProjectBody = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    status: z.enum(['tender', 'awarded', 'active', 'practical_completion', 'final_account', 'closed']),
+    contractForm: CreateProjectBody.shape.contractForm.unwrap().nullable(),
+    contractValue: CreateProjectBody.shape.contractValue.unwrap().nullable(),
+    retentionPct: pct,
+    retentionLimitPct: pct,
+    startDate: isoDate.nullable(),
+    plannedCompletion: isoDate.nullable(),
+  })
+  .partial();
+type UpdateProjectBody = z.infer<typeof UpdateProjectBody>;
 
 /** Projects are core (not a paid module): every tenant has them. */
 @Controller('projects')
@@ -62,6 +89,41 @@ export class ProjectsController {
       const e = err as { code?: string; cause?: { code?: string } };
       if (e.code === '23505' || e.cause?.code === '23505') {
         throw new ConflictException(`Project code ${body.code} already exists`);
+      }
+      throw err;
+    }
+  }
+
+  @Patch(':id')
+  @Roles('owner', 'admin', 'project_manager')
+  async update(
+    @CurrentUser() principal: Principal,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodBodyPipe(UpdateProjectBody)) body: UpdateProjectBody,
+  ) {
+    if (Object.keys(body).length === 0) throw new BadRequestException('Nothing to change');
+    try {
+      return await this.db.forTenant(principal.tenantId, async (tx) => {
+        const [before] = await tx.select().from(schema.projects).where(eq(schema.projects.id, id));
+        if (!before) throw new NotFoundException('Project not found');
+        const [updated] = await tx.update(schema.projects).set(body).where(eq(schema.projects.id, id)).returning();
+        const changes = Object.fromEntries(
+          Object.keys(body).map((k) => [k, { from: before[k as keyof typeof before] ?? null, to: body[k as keyof UpdateProjectBody] ?? null }]),
+        );
+        await appendAudit(tx, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          action: body.status && body.status !== before.status ? 'project.status_changed' : 'project.updated',
+          entityType: 'project',
+          entityId: id,
+          payload: { code: before.code, changes },
+        });
+        return updated;
+      });
+    } catch (err) {
+      const e = err as { code?: string; cause?: { code?: string } };
+      if (e.code === '23514' || e.cause?.code === '23514') {
+        throw new BadRequestException('Planned completion must be on or after the start date');
       }
       throw err;
     }

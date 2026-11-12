@@ -57,8 +57,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Operations',
     items: [
       { path: '/field', label: 'Field Operations', icon: ClipboardList, module: 'mod_field', moduleNo: 6, live: true, description: 'Site diaries, RFIs and site instructions' },
-      { path: '/hse', label: 'HSE & Safety', icon: HardHat, module: 'mod_hse', moduleNo: 8, live: false, description: 'Incidents, toolbox talks and audits' },
-      { path: '/fleet', label: 'Fleet & Equipment', icon: Truck, module: 'mod_fleet', moduleNo: 7, live: false, description: 'Telematics, maintenance and plant billing' },
+      { path: '/hse', label: 'HSE & Quality', icon: HardHat, module: 'mod_hse', moduleNo: 8, live: true, description: 'Incidents, inspections, NCRs and corrective actions' },
+      { path: '/fleet', label: 'Fleet & Equipment', icon: Truck, module: 'mod_fleet', moduleNo: 7, roles: ['owner', 'admin', 'project_manager', 'site_foreman', 'finance'], live: true, description: 'Plant register, usage charging and maintenance' },
     ],
   },
   {
@@ -67,8 +67,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/commercial', label: 'Commercial Intake', icon: Inbox, module: 'mod_commercial', moduleNo: 0, roles: COMMERCIAL, live: true, description: 'Client JCE intake, scoping and baseline lock' },
       { path: '/crm', label: 'CRM & Bids', icon: BriefcaseBusiness, module: 'mod_crm', moduleNo: 2, roles: COMMERCIAL, live: false, description: 'Clients, tenders and joint ventures' },
       { path: '/estimating', label: 'Estimating', icon: Calculator, module: 'mod_estimating', moduleNo: 4, roles: COMMERCIAL, live: false, description: 'Takeoffs, unit rates and BOQs' },
-      { path: '/finance', label: 'Finance & CVR', icon: Landmark, module: 'mod_finance', moduleNo: 3, roles: COMMERCIAL, live: false, description: 'Cost-value reconciliation, valuations and rules' },
-      { path: '/procurement', label: 'Procurement', icon: ShoppingCart, module: 'mod_procurement', moduleNo: 5, roles: COMMERCIAL, live: false, description: 'Requisitions, POs and 3-way matching' },
+      { path: '/finance', label: 'Finance & CVR', icon: Landmark, module: 'mod_finance', moduleNo: 3, roles: COMMERCIAL, live: true, description: 'Cost-value reconciliation, valuations and rules' },
+      { path: '/procurement', label: 'Procurement', icon: ShoppingCart, module: 'mod_procurement', moduleNo: 5, roles: [...COMMERCIAL, 'site_foreman'], live: true, description: 'Orders, quotes, deliveries, subcontracts and B-BBEE spend' },
     ],
   },
   {
