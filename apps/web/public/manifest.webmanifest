@@ -1,0 +1,11 @@
+{
+  "name": "ConstructOS",
+  "short_name": "ConstructOS",
+  "description": "Construction and mining operations: projects, finance, procurement, plant, HSE and payroll.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0f14",
+  "theme_color": "#2f5bd3",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

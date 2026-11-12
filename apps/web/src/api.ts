@@ -925,6 +925,19 @@ export class ApiError extends Error {
 }
 
 const TOKEN_KEY = 'constructos.token';
+/** Fired when the server rejects the session (expired, deactivated, signed out elsewhere). */
+export const SESSION_EXPIRED = 'constructos:session-expired';
+
+/** Seconds until the stored token expires (from its `exp` claim); null without a readable token. */
+export function tokenSecondsLeft(token: string | null): number | null {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number };
+    return payload.exp ? payload.exp - Math.floor(Date.now() / 1000) : null;
+  } catch {
+    return null;
+  }
+}
 
 export const session = {
   get token(): string | null {
@@ -958,6 +971,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const res = await fetch(path, { ...init, headers });
+  // An expired or revoked token: end the session once, everywhere, instead of
+  // leaving the page on screen with every call failing.
+  if (res.status === 401 && token && !path.startsWith('/api/v1/auth/login') && !path.startsWith('/api/v1/auth/invite')) {
+    session.clear();
+    window.dispatchEvent(new Event(SESSION_EXPIRED));
+  }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string | string[]; detail?: unknown };
     const detail = typeof body.detail === 'string' ? body.detail : Array.isArray(body.detail) ? 'Invalid request' : undefined;
@@ -980,6 +999,7 @@ export const api = {
   login: (tenant: string, email: string, password: string) =>
     post<{ accessToken: string }>('/api/v1/auth/login', { tenant, email, password }),
   me: () => request<Me>('/api/v1/me'),
+  refresh: () => post<{ accessToken: string; expiresIn: number }>('/api/v1/auth/refresh', {}),
 
   users: () => request<OrgUser[]>('/api/v1/users'),
   inviteUser: (body: { email: string; fullName: string; role: Role }) =>

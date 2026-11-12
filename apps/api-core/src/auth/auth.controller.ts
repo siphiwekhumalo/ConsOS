@@ -3,7 +3,8 @@ import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { z } from 'zod';
 import { ZodBodyPipe } from '../common/zod-body.pipe';
 import { AuthService } from './auth.service';
-import { Public } from './decorators';
+import { CurrentUser, Public } from './decorators';
+import type { Principal } from './auth.types';
 
 const LoginBody = z.object({
   tenant: z.string().trim().toLowerCase().min(2).max(63),
@@ -23,5 +24,14 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   login(@Body(new ZodBodyPipe(LoginBody)) body: LoginBody) {
     return this.auth.login(body.tenant, body.email, body.password);
+  }
+
+  /** Authenticated: exchange the current (unexpired) token for a new one. */
+  @Post('refresh')
+  @HttpCode(200)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  refresh(@CurrentUser() p: Principal) {
+    return this.auth.refresh(p);
   }
 }
