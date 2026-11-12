@@ -49,7 +49,8 @@ resource "aws_s3_bucket_cors_configuration" "tenant_files" {
   bucket = aws_s3_bucket.tenant_files.id
   cors_rule {
     allowed_methods = ["PUT", "GET", "HEAD"]
-    allowed_origins = ["https://${var.domain_name}", "https://www.${var.domain_name}"]
+    # app://constructos is the desktop (Electron) app, which uploads straight to S3 like the web app.
+    allowed_origins = ["https://${var.domain_name}", "https://www.${var.domain_name}", "app://constructos"]
     allowed_headers = ["content-type", "content-length", "x-amz-*"]
     expose_headers  = ["etag"]
     max_age_seconds = 3000

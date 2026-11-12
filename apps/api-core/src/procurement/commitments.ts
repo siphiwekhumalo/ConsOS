@@ -49,7 +49,7 @@ export async function commitmentsByCostCode(tx: Tx, projectId?: string): Promise
     const gross = new Map(certified.map((c) => [c.subcontractId, c.gross]));
     for (const s of subs) {
       const left = new Decimal(s.contractValue).minus(gross.get(s.id) ?? 0);
-      if (left.isPositive()) add(s.costCodeId, left.toFixed(2));
+      if (left.greaterThan(0)) add(s.costCodeId, left.toFixed(2));
     }
   }
   return new Map([...out.entries()].map(([k, v]) => [k, v.toFixed(2)]));

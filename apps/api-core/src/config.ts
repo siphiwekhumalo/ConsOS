@@ -8,6 +8,8 @@ const EnvSchema = z.object({
   DATABASE_URL_APP: z.string().url(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+  // Longest a sign-in can be kept alive by refreshing, however active the user is.
+  SESSION_MAX_HOURS: z.coerce.number().int().min(1).max(24).default(12),
   API_PORT: z.coerce.number().int().default(3000),
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
   ENTITLEMENT_CACHE_SECONDS: z.coerce.number().int().min(0).max(300).default(30),

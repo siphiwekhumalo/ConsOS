@@ -26,6 +26,8 @@ import { RfqsController } from './procurement/rfqs.controller';
 import { SubcontractsController } from './procurement/subcontracts.controller';
 import { PlantController } from './operations/plant.controller';
 import { HseController } from './operations/hse.controller';
+import { PayrollController } from './payroll/payroll.controller';
+import { CrmController } from './crm/crm.controller';
 
 @Global()
 @Module({})
@@ -66,6 +68,8 @@ export class AppModule {
         SubcontractsController,
         PlantController,
         HseController,
+        PayrollController,
+        CrmController,
       ],
       providers: [StorageService, LedgerService, PurchaseOrdersService],
     };

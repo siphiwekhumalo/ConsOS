@@ -1,0 +1,53 @@
+{
+  "name": "@constructos/desktop",
+  "productName": "ConstructOS",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ConstructOS desktop app (Electron shell around the web UI)",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json && node --test dist/routing.test.js",
+    "start": "pnpm --filter @constructos/web build && tsc -p tsconfig.json && electron .",
+    "dev": "tsc -p tsconfig.json && electron .",
+    "dist:win": "pnpm --filter @constructos/web build && tsc -p tsconfig.json && electron-builder --win nsis --x64"
+  },
+  "build": {
+    "appId": "com.baheka.constructos",
+    "productName": "ConstructOS",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "!dist/**/*.test.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web"
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "ConstructOS-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "electron": "^45.3.1",
+    "electron-builder": "^26.18.0",
+    "typescript": "^5.9.3"
+  }
+}

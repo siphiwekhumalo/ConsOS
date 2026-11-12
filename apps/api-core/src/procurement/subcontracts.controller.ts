@@ -214,7 +214,7 @@ export class SubcontractsController {
         await tx.update(SCC).set({ status: 'certified', certifiedAt: new Date(), certifiedBy: p.userId }).where(eq(SCC.id, certId));
 
         let invoiceId: string | null = null;
-        if (new Decimal(f.amountDue).isPositive()) {
+        if (new Decimal(f.amountDue).greaterThan(0)) {
           const vatRate = supplier!.vatNumber ? '15' : '0';
           const lines = [
             { description: `${sc.ref} certificate ${cert.certNo}: work done this period`, amount: f.grossMovement, vatRate, projectId: sc.projectId, costCodeId: sc.costCodeId, category: 'subcontract' as const, accountId: null },

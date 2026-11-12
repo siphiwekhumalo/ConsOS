@@ -26,7 +26,7 @@ export class JwtAuthGuard implements CanActivate {
 
     try {
       const claims = await this.jwt.verifyAsync<AccessTokenClaims>(token);
-      req.principal = { userId: claims.sub, tenantId: claims.tid, role: claims.role };
+      req.principal = { userId: claims.sub, tenantId: claims.tid, role: claims.role, sessionStart: claims.sat ?? claims.iat };
       return true;
     } catch {
       throw new UnauthorizedException();

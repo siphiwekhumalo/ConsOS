@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
-import { api, ApiError, session, type Me } from './api';
+import { api, ApiError, SESSION_EXPIRED, session, tokenSecondsLeft, type Me } from './api';
 import { visibleGroups } from './modules';
 import { AppShell, Logo } from './components/shell/AppShell';
 import { Login } from './pages/Login';
@@ -16,8 +16,8 @@ const FieldOps = page(() => import('./pages/FieldOps'), 'FieldOps');
 const Finance = page(() => import('./pages/Finance'), 'Finance');
 const AiAgent = page(() => import('./pages/AiAgent'), 'AiAgent');
 const Audit = page(() => import('./pages/Audit'), 'Audit');
-const Payroll = page(() => import('./pages/modules/Payroll'), 'Payroll');
-const Crm = page(() => import('./pages/modules/Crm'), 'Crm');
+const Payroll = page(() => import('./pages/people/Payroll'), 'Payroll');
+const Crm = page(() => import('./pages/crm/Crm'), 'Crm');
 const Estimating = page(() => import('./pages/modules/Estimating'), 'Estimating');
 const Procurement = page(() => import('./pages/procurement/Procurement'), 'Procurement');
 const Fleet = page(() => import('./pages/operations/Fleet'), 'Fleet');
@@ -61,6 +61,36 @@ export function App() {
     if (session.token) void loadMe();
   }, [loadMe]);
 
+  // The server rejected the session: back to sign-in, staying on the same page.
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    const onExpired = () => {
+      setMe(null);
+      setNotice('Your session expired. Sign in again to carry on where you left off.');
+    };
+    window.addEventListener(SESSION_EXPIRED, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED, onExpired);
+  }, []);
+
+  // Keep an active user signed in: renew the token shortly before it expires,
+  // but only after recent activity, so an unattended screen still times out.
+  useEffect(() => {
+    if (!me) return;
+    let lastActivity = Date.now();
+    const touch = () => { lastActivity = Date.now(); };
+    const events = ['pointerdown', 'keydown', 'wheel'] as const;
+    events.forEach((e) => window.addEventListener(e, touch, { passive: true }));
+    const timer = setInterval(() => {
+      const left = tokenSecondsLeft(session.token);
+      if (left === null || left > 180 || Date.now() - lastActivity > 10 * 60_000) return;
+      api.refresh().then((r) => session.set(r.accessToken), () => { /* a 401 here ends the session via SESSION_EXPIRED */ });
+    }, 60_000);
+    return () => {
+      clearInterval(timer);
+      events.forEach((e) => window.removeEventListener(e, touch));
+    };
+  }, [me]);
+
   if (loading) {
     return (
       <div className="grid min-h-screen place-items-center bg-bg">
@@ -81,7 +111,7 @@ export function App() {
       </Suspense>
     );
   }
-  if (!me) return <Login onLoggedIn={loadMe} />;
+  if (!me) return <Login notice={notice} onLoggedIn={() => { setNotice(null); void loadMe(); }} />;
 
   const groups = visibleGroups(me.modules, me.user.role);
   const allowed = new Set(groups.flatMap((g) => g.items.map((i) => i.path)));
@@ -106,11 +136,11 @@ export function App() {
         <Route path="/field" element={guard('/field', <FieldOps />)} />
         <Route path="/hse" element={guard('/hse', <Hse me={me} />)} />
         <Route path="/fleet" element={guard('/fleet', <Fleet me={me} />)} />
-        <Route path="/crm" element={guard('/crm', <Crm />)} />
+        <Route path="/crm" element={guard('/crm', <Crm me={me} />)} />
         <Route path="/estimating" element={guard('/estimating', <Estimating />)} />
         <Route path="/finance" element={guard('/finance', <Finance me={me} />)} />
         <Route path="/procurement" element={guard('/procurement', <Procurement me={me} />)} />
-        <Route path="/payroll" element={guard('/payroll', <Payroll />)} />
+        <Route path="/payroll" element={guard('/payroll', <Payroll me={me} />)} />
         {/* Not /ai: that prefix belongs to the AI service behind the gateway. */}
         <Route path="/agent" element={guard('/agent', <AiAgent />)} />
         <Route path="/portal" element={guard('/portal', <Portal />)} />

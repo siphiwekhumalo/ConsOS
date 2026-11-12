@@ -320,7 +320,7 @@ export const accounts = pgTable('accounts', {
   ...timestamps,
 });
 
-export const journalSource = pgEnum('journal_source', ['manual', 'supplier_invoice', 'customer_invoice', 'payment', 'bank', 'reversal', 'void']);
+export const journalSource = pgEnum('journal_source', ['manual', 'supplier_invoice', 'customer_invoice', 'payment', 'bank', 'reversal', 'void', 'payroll']);
 
 export const journals = pgTable('journals', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -366,7 +366,81 @@ export const suppliers = pgTable('suppliers', {
   isSubcontractor: boolean('is_subcontractor').notNull().default(false),
   ...timestamps,
 });
-export const customers = pgTable('customers', { ...party, billingAddress: text('billing_address'), ...timestamps });
+export const customers = pgTable('customers', {
+  ...party,
+  billingAddress: text('billing_address'),
+  sector: text('sector'),
+  province: text('province'),
+  website: text('website'),
+  accountManagerId: uuid('account_manager_id'),
+  notes: text('notes').notNull().default(''),
+  ...timestamps,
+});
+
+// ---------------------------------------------------------------- CRM & tenders (0012)
+
+export const contacts = pgTable('contacts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  customerId: uuid('customer_id').notNull(),
+  fullName: text('full_name').notNull(),
+  jobTitle: text('job_title'),
+  email: text('email'),
+  phone: text('phone'),
+  isPrimary: boolean('is_primary').notNull().default(false),
+  marketingOptOut: boolean('marketing_opt_out').notNull().default(false),
+  ...timestamps,
+});
+
+export const opportunityStage = pgEnum('opportunity_stage', ['lead', 'qualifying', 'tendering', 'submitted', 'won', 'lost', 'no_bid']);
+
+export const opportunities = pgTable('opportunities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  oppNo: integer('opp_no').notNull(),
+  customerId: uuid('customer_id').notNull(),
+  contactId: uuid('contact_id'),
+  title: text('title').notNull(),
+  description: text('description').notNull().default(''),
+  stage: opportunityStage('stage').notNull().default('lead'),
+  source: text('source').notNull().default('client_rfq'),
+  estimatedValue: numeric('estimated_value', { precision: 18, scale: 2 }),
+  probability: integer('probability').notNull().default(10),
+  tenderRef: text('tender_ref'),
+  briefingOn: timestamp('briefing_on', { withTimezone: true }),
+  closingAt: timestamp('closing_at', { withTimezone: true }),
+  expectedAwardOn: date('expected_award_on'),
+  cidbGradeRequired: text('cidb_grade_required'),
+  bbbeeLevelRequired: integer('bbbee_level_required'),
+  ownerId: uuid('owner_id').notNull(),
+  estimateId: uuid('estimate_id'),
+  projectId: uuid('project_id'),
+  awardedValue: numeric('awarded_value', { precision: 18, scale: 2 }),
+  closeReason: text('close_reason'),
+  competitor: text('competitor'),
+  closedAt: timestamp('closed_at', { withTimezone: true }),
+  createdBy: uuid('created_by').notNull(),
+  ...timestamps,
+});
+
+export const crmActivities = pgTable('crm_activities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  customerId: uuid('customer_id').notNull(),
+  opportunityId: uuid('opportunity_id'),
+  contactId: uuid('contact_id'),
+  kind: text('kind').notNull(),
+  occurredOn: date('occurred_on').notNull(),
+  summary: text('summary').notNull(),
+  nextStep: text('next_step'),
+  followUpOn: date('follow_up_on'),
+  followUpDone: boolean('follow_up_done').notNull().default(false),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Opportunity = typeof opportunities.$inferSelect;
+export type OpportunityStage = (typeof opportunityStage.enumValues)[number];
 
 export const supplierInvoiceStatus = pgEnum('supplier_invoice_status', ['draft', 'approved', 'part_paid', 'paid', 'void']);
 
@@ -875,6 +949,149 @@ export const hseSettings = pgTable('hse_settings', {
   hoursPerShift: numeric('hours_per_shift', { precision: 4, scale: 1 }).notNull().default('9'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------- HR & payroll (0011)
+
+export type TaxBracket = { from: number; base: number; rate: number };
+
+export const taxTables = pgTable('tax_tables', {
+  taxYear: text('tax_year').primaryKey(),
+  startsOn: date('starts_on').notNull(),
+  endsOn: date('ends_on').notNull(),
+  brackets: jsonb('brackets').$type<TaxBracket[]>().notNull(),
+  primaryRebate: numeric('primary_rebate', { precision: 12, scale: 2 }).notNull(),
+  secondaryRebate: numeric('secondary_rebate', { precision: 12, scale: 2 }).notNull(),
+  tertiaryRebate: numeric('tertiary_rebate', { precision: 12, scale: 2 }).notNull(),
+  uifCeilingMonthly: numeric('uif_ceiling_monthly', { precision: 12, scale: 2 }).notNull(),
+  medicalCreditMain: numeric('medical_credit_main', { precision: 12, scale: 2 }).notNull(),
+  medicalCreditFirstDep: numeric('medical_credit_first_dep', { precision: 12, scale: 2 }).notNull(),
+  medicalCreditAdditional: numeric('medical_credit_additional', { precision: 12, scale: 2 }).notNull(),
+  source: text('source').notNull(),
+});
+
+export const payrollSettings = pgTable('payroll_settings', {
+  tenantId: uuid('tenant_id').primaryKey(),
+  sdlLiable: boolean('sdl_liable').notNull().default(true),
+  monthlyHours: numeric('monthly_hours', { precision: 5, scale: 1 }).notNull().default('195'),
+  payeReference: text('paye_reference'),
+  uifReference: text('uif_reference'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const employees = pgTable('employees', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeNo: text('employee_no').notNull(),
+  firstName: text('first_name').notNull(),
+  lastName: text('last_name').notNull(),
+  occupation: text('occupation').notNull(),
+  employmentType: text('employment_type').notNull(),
+  payBasis: text('pay_basis').notNull(),
+  rate: numeric('rate', { precision: 12, scale: 2 }).notNull(),
+  medicalAidMembers: integer('medical_aid_members').notNull().default(0),
+  startDate: date('start_date').notNull(),
+  endDate: date('end_date'),
+  status: text('status').notNull().default('active'),
+  terminationReason: text('termination_reason'),
+  defaultProjectId: uuid('default_project_id'),
+  phone: text('phone'),
+  ...timestamps,
+});
+
+export const employeePrivate = pgTable('employee_private', {
+  employeeId: uuid('employee_id').primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  idNumber: text('id_number'),
+  passportNo: text('passport_no'),
+  taxNumber: text('tax_number'),
+  dateOfBirth: date('date_of_birth').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const certifications = pgTable('certifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  kind: text('kind').notNull(),
+  certificateNo: text('certificate_no'),
+  issuedOn: date('issued_on').notNull(),
+  expiresOn: date('expires_on'),
+  fileId: uuid('file_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const payRuns = pgTable('pay_runs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  period: text('period').notNull(),
+  payDate: date('pay_date').notNull(),
+  taxYear: text('tax_year').notNull(),
+  status: text('status').notNull().default('draft'),
+  grossTotal: numeric('gross_total', { precision: 18, scale: 2 }).notNull().default('0'),
+  payeTotal: numeric('paye_total', { precision: 18, scale: 2 }).notNull().default('0'),
+  uifTotal: numeric('uif_total', { precision: 18, scale: 2 }).notNull().default('0'),
+  sdlTotal: numeric('sdl_total', { precision: 18, scale: 2 }).notNull().default('0'),
+  netTotal: numeric('net_total', { precision: 18, scale: 2 }).notNull().default('0'),
+  journalId: uuid('journal_id'),
+  finalisedAt: timestamp('finalised_at', { withTimezone: true }),
+  finalisedBy: uuid('finalised_by'),
+  createdBy: uuid('created_by').notNull(),
+  ...timestamps,
+});
+
+export const timeEntries = pgTable('time_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  projectId: uuid('project_id').notNull(),
+  costCodeId: uuid('cost_code_id'),
+  workDate: date('work_date').notNull(),
+  normalHours: numeric('normal_hours', { precision: 4, scale: 2 }).notNull().default('0'),
+  overtimeHours: numeric('overtime_hours', { precision: 4, scale: 2 }).notNull().default('0'),
+  sundayHours: numeric('sunday_hours', { precision: 4, scale: 2 }).notNull().default('0'),
+  status: text('status').notNull().default('submitted'),
+  note: text('note'),
+  capturedBy: uuid('captured_by').notNull(),
+  approvedBy: uuid('approved_by'),
+  ...timestamps,
+});
+
+export const leaveRequests = pgTable('leave_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  kind: text('kind').notNull(),
+  startsOn: date('starts_on').notNull(),
+  endsOn: date('ends_on').notNull(),
+  days: numeric('days', { precision: 5, scale: 1 }).notNull(),
+  status: text('status').notNull().default('requested'),
+  note: text('note'),
+  decidedBy: uuid('decided_by'),
+  createdBy: uuid('created_by').notNull(),
+  ...timestamps,
+});
+
+export type PayslipEarning = { code: string; label: string; quantity: string; rate: string; amount: string };
+
+export const payslips = pgTable('payslips', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  payRunId: uuid('pay_run_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  earnings: jsonb('earnings').$type<PayslipEarning[]>().notNull(),
+  gross: numeric('gross', { precision: 12, scale: 2 }).notNull(),
+  paye: numeric('paye', { precision: 12, scale: 2 }).notNull(),
+  uifEmployee: numeric('uif_employee', { precision: 12, scale: 2 }).notNull(),
+  otherDeductions: numeric('other_deductions', { precision: 12, scale: 2 }).notNull().default('0'),
+  net: numeric('net', { precision: 12, scale: 2 }).notNull(),
+  uifEmployer: numeric('uif_employer', { precision: 12, scale: 2 }).notNull(),
+  sdl: numeric('sdl', { precision: 12, scale: 2 }).notNull(),
+  employerCost: numeric('employer_cost', { precision: 12, scale: 2 }).notNull(),
+  hoursWorked: numeric('hours_worked', { precision: 8, scale: 2 }).notNull().default('0'),
+});
+
+export type TaxTable = typeof taxTables.$inferSelect;
+export type Employee = typeof employees.$inferSelect;
 
 export type Asset = typeof assets.$inferSelect;
 export type Incident = typeof incidents.$inferSelect;

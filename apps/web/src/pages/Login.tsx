@@ -10,7 +10,7 @@ const POINTS = [
   { icon: ScrollText, title: 'Audit-ready', text: 'A tamper-evident ledger for FIDIC, NEC and SARS reporting.' },
 ];
 
-export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
+export function Login({ onLoggedIn, notice }: { onLoggedIn: () => void; notice?: string | null }) {
   const [tenant, setTenant] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -101,6 +101,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
             <Field label="Password">
               <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
             </Field>
+            {notice && !error && <Alert tone="info">{notice}</Alert>}
             {error && <Alert>{error}</Alert>}
             <Button type="submit" loading={busy} className="h-10 w-full">
               Sign in <ArrowRight className="size-4" />

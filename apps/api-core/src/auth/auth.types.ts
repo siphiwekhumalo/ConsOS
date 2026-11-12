@@ -5,6 +5,9 @@ export interface AccessTokenClaims {
   sub: string; // user id
   tid: string; // tenant id
   role: UserRole;
+  /** When the user signed in (epoch seconds). Carried unchanged through refreshes, to cap the session length. */
+  sat?: number;
+  iat?: number;
 }
 
 /** Authenticated principal attached to the request by JwtAuthGuard. */
@@ -12,4 +15,6 @@ export interface Principal {
   userId: string;
   tenantId: string;
   role: UserRole;
+  /** Sign-in time (epoch seconds). */
+  sessionStart?: number;
 }

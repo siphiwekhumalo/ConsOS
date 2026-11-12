@@ -42,7 +42,7 @@ export class LedgerService {
 
   async nextNo(
     tx: Tx,
-    kind: 'journal' | 'customer_invoice' | 'payment_in' | 'payment_out' | 'purchase_order' | 'rfq' | 'goods_receipt' | 'work_order' | 'incident' | 'ncr' | 'inspection',
+    kind: 'journal' | 'customer_invoice' | 'payment_in' | 'payment_out' | 'purchase_order' | 'rfq' | 'goods_receipt' | 'work_order' | 'incident' | 'ncr' | 'inspection' | 'opportunity',
   ): Promise<number> {
     // postgres-js returns the rows as an array.
     const rows = (await tx.execute(sql`select next_doc_no(${kind}) as n`)) as unknown as { n: number }[];

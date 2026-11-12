@@ -36,4 +36,10 @@ export type {
   Asset,
   Incident,
   InspectionItem,
+  TaxTable,
+  TaxBracket,
+  Employee,
+  PayslipEarning,
+  Opportunity,
+  OpportunityStage,
 } from './schema';

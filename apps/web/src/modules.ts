@@ -65,7 +65,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Commercial',
     items: [
       { path: '/commercial', label: 'Commercial Intake', icon: Inbox, module: 'mod_commercial', moduleNo: 0, roles: COMMERCIAL, live: true, description: 'Client JCE intake, scoping and baseline lock' },
-      { path: '/crm', label: 'CRM & Bids', icon: BriefcaseBusiness, module: 'mod_crm', moduleNo: 2, roles: COMMERCIAL, live: false, description: 'Clients, tenders and joint ventures' },
+      { path: '/crm', label: 'CRM & Bids', icon: BriefcaseBusiness, module: 'mod_crm', moduleNo: 2, roles: COMMERCIAL, live: true, description: 'Clients, tender pipeline and follow-ups' },
       { path: '/estimating', label: 'Estimating', icon: Calculator, module: 'mod_estimating', moduleNo: 4, roles: COMMERCIAL, live: false, description: 'Takeoffs, unit rates and BOQs' },
       { path: '/finance', label: 'Finance & CVR', icon: Landmark, module: 'mod_finance', moduleNo: 3, roles: COMMERCIAL, live: true, description: 'Cost-value reconciliation, valuations and rules' },
       { path: '/procurement', label: 'Procurement', icon: ShoppingCart, module: 'mod_procurement', moduleNo: 5, roles: [...COMMERCIAL, 'site_foreman'], live: true, description: 'Orders, quotes, deliveries, subcontracts and B-BBEE spend' },
@@ -74,7 +74,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'People',
     items: [
-      { path: '/payroll', label: 'HRIS & Payroll', icon: Users, module: 'mod_payroll', moduleNo: 1, roles: ['owner', 'admin', 'finance'], live: false, description: 'SARS payroll and bargaining councils' },
+      { path: '/payroll', label: 'HR & Payroll', icon: Users, module: 'mod_payroll', moduleNo: 1, roles: ['owner', 'admin', 'finance', 'project_manager', 'site_foreman'], live: true, description: 'Employees, timesheets, leave and SARS payroll' },
     ],
   },
   {

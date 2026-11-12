@@ -51,7 +51,7 @@ export function toLines(postings: Posting[]): JournalLineValues[] {
       accountId: p.accountId,
       projectId: p.projectId ?? null,
       description: p.description ?? null,
-      debit: p.v.isPositive() ? money(p.v) : '0.00',
+      debit: p.v.greaterThan(0) ? money(p.v) : '0.00',
       credit: p.v.isNegative() ? money(p.v.negated()) : '0.00',
     }));
   const net = lines.reduce((s, l) => s.plus(d(l.debit)).minus(d(l.credit)), ZERO);
@@ -158,9 +158,9 @@ export function trialBalance(accounts: AccountRef[], balances: Balance[]) {
       const b = by.get(a.id);
       const net = d(b?.debit).minus(d(b?.credit));
       if (net.isZero()) return null;
-      if (net.isPositive()) totalDr = totalDr.plus(net);
+      if (net.greaterThan(0)) totalDr = totalDr.plus(net);
       else totalCr = totalCr.plus(net.negated());
-      return { ...a, debit: net.isPositive() ? money(net) : '0.00', credit: net.isNegative() ? money(net.negated()) : '0.00' };
+      return { ...a, debit: net.greaterThan(0) ? money(net) : '0.00', credit: net.isNegative() ? money(net.negated()) : '0.00' };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
   return { rows, totalDebit: money(totalDr), totalCredit: money(totalCr), balanced: totalDr.equals(totalCr) };

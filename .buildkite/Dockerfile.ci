@@ -8,6 +8,9 @@ COPY packages/db/package.json packages/db/
 COPY packages/dsl-parser/package.json packages/dsl-parser/
 COPY apps/api-core/package.json apps/api-core/
 COPY apps/web/package.json apps/web/
+COPY apps/desktop/package.json apps/desktop/
+# CI compiles and tests the desktop shell but never runs it: skip the ~100 MB Electron binary.
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 RUN pnpm install --frozen-lockfile
 COPY . .
 CMD ["sh", "-c", "pnpm build && pnpm typecheck && pnpm test"]

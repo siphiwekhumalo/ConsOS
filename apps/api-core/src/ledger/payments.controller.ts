@@ -68,7 +68,7 @@ export class PaymentsController {
     const ids = body.allocations.map((a) => a.invoiceId);
     if (new Set(ids).size !== ids.length) throw new BadRequestException('Allocate to each invoice once');
     const total = body.allocations.reduce((s, a) => s.plus(a.amount), new Decimal(0));
-    if (!total.isPositive()) throw new BadRequestException('The payment must be more than zero');
+    if (!total.greaterThan(0)) throw new BadRequestException('The payment must be more than zero');
     try {
       return await this.db.forTenant(p.tenantId, (tx) => (body.direction === 'out' ? this.payOut(tx, p, body, money(total)) : this.receive(tx, p, body, money(total))));
     } catch (err) {
